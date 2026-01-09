@@ -36,10 +36,6 @@ const char* passwordAP = NULL;
 const IPAddress ipAP = IPAddress(192,168,10,1);*/
 
 
-//Для разных сетей
-//const char* ssid = "DIR-300";
-//const char* password = "Hrulia+7";
-
 //const char* ssid = "Redmi Note 11";//type your ssid
 //const char* password = "11111122";//type your password
 

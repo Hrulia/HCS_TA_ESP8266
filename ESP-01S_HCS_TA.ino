@@ -1,106 +1,128 @@
-/*
- Name:		ESP_01S_HCS_TA.ino
- Created:	02.01.2021 11:23:52
- Author:	Sergey
+п»ї/*
+Name:		ESP_01S_HCS_TA.ino
+Created:	02.01.2021 11:23:52
+Author:	Serge
 */
 
-/*//!!!! как нужно добавлять файлы cpp и h в проект  https://arduinoprosto.ru/q/61634/neskolko-faylov-ino-v-odnom-eskize
+/*//!!!! РєР°Рє РЅСѓР¶РЅРѕ РґРѕР±Р°РІР»СЏС‚СЊ С„Р°Р№Р»С‹ cpp Рё h РІ РїСЂРѕРµРєС‚  https://arduinoprosto.ru/q/61634/neskolko-faylov-ino-v-odnom-eskize
 
-в *.h - файле:
-	extern byte Test;
+РІ *.h - С„Р°Р№Р»Рµ:
+extern byte Test;
 
-в *.cpp - файле:
-	byte Test = 0;
+РІ *.cpp - С„Р°Р№Р»Рµ:
+byte Test = 0;
 
-	Всё, теперь переменная Test доступна везде, где подключен соответствующий *.h - файл.*/
+Р’СЃС‘, С‚РµРїРµСЂСЊ РїРµСЂРµРјРµРЅРЅР°СЏ Test РґРѕСЃС‚СѓРїРЅР° РІРµР·РґРµ, РіРґРµ РїРѕРґРєР»СЋС‡РµРЅ СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РёР№ *.h - С„Р°Р№Р».*/
 
-
-//#include <PubSubClient.h>
-//#include <ESP8266WiFi.h> 
 #include <ESP8266WebServer.h>
 
-//подключаем мои файлы .h и .cpp
+//РїРѕРґРєР»СЋС‡Р°РµРј РјРѕРё С„Р°Р№Р»С‹ .h Рё .cpp
 #include "myCycle.h"
 
-/* Оформление отладки как у Алекса Гайвера*/
-
-//включение отладки в основном модуле программы
+//РІРєР»СЋС‡РµРЅРёРµ РѕС‚Р»Р°РґРєРё РІ РѕСЃРЅРѕРІРЅРѕРј РјРѕРґСѓР»Рµ РїСЂРѕРіСЂР°РјРјС‹/* РћС„РѕСЂРјР»РµРЅРёРµ РѕС‚Р»Р°РґРєРё РєР°Рє Сѓ РђР»РµРєСЃР° Р“Р°Р№РІРµСЂР°*/
 //#define DEBUG_ENABLE_MAIN
-
 #ifdef DEBUG_ENABLE_MAIN
-	#define DEBUG_PRINT_MAIN(x) (Serial.print(x))
-	#define DEBUG_PRINTLN_MAIN(x) (Serial.println(x))
-	#define DEBUGR_PRINTR_MAIN(x,r) (Serial.print(x,r))
+#define DEBUG_PRINT_MAIN(x) (Serial.print(x))
+#define DEBUG_PRINTLN_MAIN(x) (Serial.println(x))
+#define DEBUGR_PRINTR_MAIN(x,r) (Serial.print(x,r))
 #else
-	#define DEBUG_PRINT_MAIN(x) 
-	#define DEBUG_PRINTLN_MAIN(x) 
-	#define DEBUGR_PRINTR_MAIN(x,r) 
+#define DEBUG_PRINT_MAIN(x) 
+#define DEBUG_PRINTLN_MAIN(x) 
+#define DEBUGR_PRINTR_MAIN(x,r) 
 #endif // DEBUG_ENABLE_MAIN
 
+//РџРѕРґРєР»СЋС‡РµРЅРЅС‹Рµ РјРѕРґСѓР»Рё РїСЂРѕРіСЂР°РјРјС‹
+//#define MOD_MQTT
 
-#define MAX_SERIAL_REQ  50		//
-#define NUMBER_OF_DS18B20 18	//Number of sensor DS18B20 (16) + датчик температуры дыма (1) + текущая целевая температура (1)
-#define SERIAL_TO_MEGA Serial			//Serial port for communication with MEGA
+#define MAX_SERIAL_REQ  50			// РњР°РєСЃРёРјР°Р»СЊРЅРѕРµ РєРѕР»РёС‡РµСЃС‚РІРѕ СЃРёРјРІРѕР»РѕРІ РєРѕС‚РѕСЂРѕРµ Р±СѓРґРµРј С‡РёС‚Р°С‚СЊ С†РµР»РёРєРѕРј РёР· РІС…РѕРґРЅРѕРіРѕ Р±СѓС„РµСЂР° UART
+#define NUMBER_OF_TEMPERATURE_SENSORS 18		// РћР±С‰РµРµ РєРѕР»РёС‡РµСЃС‚РІРѕ РёСЃС‚РѕС‡РЅРёРєРѕРІ Р·РЅР°С‡РµРЅРёР№ С‚РµРјРїРµСЂР°С‚СѓСЂС‹: 16 - DS18B20 + 1 РґР°С‚С‡РёРє С‚РµРјРїРµСЂР°С‚СѓСЂС‹ РґС‹РјР° + 1 С‚РµРєСѓС‰Р°СЏ С†РµР»РµРІР°СЏ С‚РµРјРїРµСЂР°С‚СѓСЂР° СЃ СѓС‡РµС‚РѕРј СЂР°СЃРїРёСЃР°РЅРёСЏ
+#define SERIAL_TO_MEGA Serial		//Serial port for communication with MEGA (Serial, Serial1)
+#define PIN_RESET_MEGA 12				//РІС‹РІРѕРґ ESP РґР»СЏ РїРѕРґР°С‡Рё СЃРёРіРЅР°Р»Р° СЃР±СЂРѕСЃР° РЅР° РњР•Р“РЈ
+#define TIME_OUT_WATCH_DOG_MEGA 300000 //5 РјРёРЅСѓС‚. Р”РІРµ РјРёРЅСѓС‚С‹ РЅР° РѕС‚РєСЂС‹С‚РёРµ, РґРІРµ РјРёРЅСѓС‚С‹ РЅР° Р·Р°РєСЂС‹С‚РёРµ РїСЂРё С‚РµСЃС‚Рµ .
 
-//Enumeration - параметры работы системы
-enum sysParam{ ERR, ON, OFF, AUTO, OPEN, CLOSE, MYALG, PID};
-String sysParamString[8] = { "Err","On", "Off", "Auto", "Open", "Close", "myAlg", "PID" }; //отображает имена элементов sysParam
 
-///time_t SystemTime = 0; //esp system time ///удаляй, время есть теперь в объекте ntp
+//Enumeration - РїР°СЂР°РјРµС‚СЂС‹ СЂР°Р±РѕС‚С‹ СЃРёСЃС‚РµРјС‹
+enum sysParam { ERROR = -1, EMPTY, ON, OFF, AUTO, OPEN, CLOSE, MYALG, PID };
+String sysParamString[8] = { "Empty","On", "Off", "Auto", "Open", "Close", "myAlg", "PID" }; //РѕС‚РѕР±СЂР°Р¶Р°РµС‚ РёРјРµРЅР° СЌР»РµРјРµРЅС‚РѕРІ sysParam
 
-/* настройка пинов */
-//#define PIN_RESET_MEGA D1 //пин генерации сигнала сброса для модуля MEGA
 
-//global variables
-float temperatures[(NUMBER_OF_DS18B20)];	//Массив температур датчиков DS18B20 
-int SysParametrs[6];											// system (in MEGA) parameters and variables array
-/* 
-[0] - BoilerPumpMode				//1 - on, 2 - off, 3 - auto
-[1] - SystemPumpMode				//1 - on, 2 - off, 3 - auto
-[2] - SysTempControlMode		//6 – мой алгоритм регулирования, 7 - PID регулятор
-[3] - DoorAirMode						//4 - open, 5 - close, 3 - auto
-[4] - reserved
-[5] - reserved
+float temperatures[(NUMBER_OF_TEMPERATURE_SENSORS)];	//РњР°СЃСЃРёРІ С‚РµРјРїРµСЂР°С‚СѓСЂ РІСЃРµС… РёСЃС‚РѕС‡РЅРёРєРѕРІ С‚РµРјРїРµСЂР°С‚СѓСЂС‹
+bool allTemperaturesObtained = false;									//СЃРёРіРЅР°Р»РёР·РёСЂСѓРµС‚, С‡С‚Рѕ СѓР¶Рµ РІСЃРµ Р·РЅР°С‡РµРЅРёСЏ С‚РµРјРїРµСЂР°С‚СѓСЂС‹ РїРѕР»СѓС‡РµРЅС‹ РѕС‚ РјРµРіРё, РјРёРЅРёРјСѓРј РѕРґРёРЅ СЂР°Р·
+bool pidParamChange = true; //С„Р»Р°Рі, СѓРєР°Р·С‹РІР°СЋС‰РёР№, С‡С‚Рѕ РІ РјРµРіСѓ Р±С‹Р» РѕС‚РїСЂР°РІР»РµРЅ Р·Р°РїСЂРѕСЃ РЅР° РёР·РјРµРЅРµРЅРёРµ РїСЂР°РјРµС‚СЂРѕРІ PID СЂРµРіСѓР»СЏС‚РѕСЂР° Рё РЅСѓР¶РЅРѕ СЃС‡РёС‚Р°С‚СЊ РЅРѕРІС‹Рµ РїР°СЂР°РјРµС‚СЂС‹
 
-*/
+// РЎС‚СЂСѓРєС‚СѓСЂР° СЃ РїР°СЂР°РјРµС‚СЂС‹ ESP
+struct EspParametersStruct {
+	// РџРѕР»СѓС‡РµРЅРёРµ РґР°РЅРЅС‹С… РїРѕ С‚РµРјРїРµСЂР°С‚СѓСЂР°Рј
+	unsigned long DelayBetweenSendingTemperatureRequests = 500;											//Р·Р°РґРµСЂР¶РєР° РјРµР¶РґСѓ РѕС‚РїСЂР°РІРєР°РјРё Р·Р°РїСЂРѕСЃРѕРІ Рѕ С‚РµРјРїРµСЂР°С‚СѓСЂРµ
+	
+	//РџР°СЂР°РјРµС‚СЂС‹ Р·Р°РїСѓСЃРєР° РјРѕРґСѓР»СЏ ThingSpeak
+	bool ThingspeakMainChannel = true;																							//Р’РєР»СЋС‡РёС‚СЊ РїРµСЂРµРґР°С‡Сѓ РёРЅС„РѕСЂРјР°С†РёРё РЅР° СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РёР№ РєР°РЅР°Р»
+	bool ThingspeakSecondaryChannel = true;
+	unsigned long DelayBetweenSendingTemperatureToThingSpeakMainChannel = 300000;			//Р·Р°РґРµСЂР¶РєР° РјРµР¶РґСѓ РѕС‚РїСЂР°РІРєРѕР№ РґР°РЅРЅС‹С… РїРѕ С‚РµРјРїРµСЂР°С‚СѓСЂРµ РЅР° РѕСЃРЅРѕРІРЅРѕР№ РєР°РЅР°Р» ThingSpeak (РЅРµ 
+	unsigned long DelayBetweenSendingTemperatureToThingSpeakSecondaryChannel = 60000;	//Р·Р°РґРµСЂР¶РєР° РјРµР¶РґСѓ РѕС‚РїСЂР°РІРєРѕР№ РґР°РЅРЅС‹С… РїРѕ С‚РµРјРїРµСЂР°С‚СѓСЂРµ РЅР° РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Р№ РєР°РЅР°Р» ThingSpeak 
+
+} EspParameters;  //РІ РґР°РЅРЅРѕРј РѕР±СЉРµРєС‚Рµ С…СЂР°РЅРёРј РїР°СЂР°РјРµС‚СЂС‹ СЃРёСЃС‚РµРјС‹, РїРѕР»СѓС‡РµРЅРЅС‹Рµ РёР· РњР•Р“Р
+
+// РЎС‚СЂСѓРєС‚СѓСЂР° СЃ РїР°СЂР°РјРµС‚СЂС‹ СЃРёСЃС‚РµРјС‹ РёР· РњР•Р“Р
+struct MegaParametersStruct {
+	// СЂРµР¶РёРјС‹ СЂР°Р±РѕС‚С‹ РЅР°СЃРѕСЃРѕРІ РўРўРє Рё РЎРёСЃС‚РµРјС‹
+	int TTKPumpMode = EMPTY;			//1 - on, 2 - off, 3 - auto
+	int SystemPumpMode = EMPTY;			//1 - on, 2 - off, 3 - auto
+	
+	// Р°Р»РіРѕСЂРёС‚Рј СЂРµРіСѓР»РёСЂРѕРІР°РЅРёСЏ С‚РµРјРїРµСЂР°С‚СѓСЂС‹ РІ СЃРёСЃС‚РµРјРµ
+	int SysTempControlMode = EMPTY;	//6 вЂ“ РјРѕР№ Р°Р»РіРѕСЂРёС‚Рј СЂРµРіСѓР»РёСЂРѕРІР°РЅРёСЏ, 7 - PID СЂРµРіСѓР»СЏС‚РѕСЂ
+	
+	// РђР»РіРѕСЂРёС‚Рј СѓРїСЂР°РІР»РµРЅРёСЏ РґРІРµСЂРєРѕР№ РїРѕРґРґСѓРІР°Р»Р°
+	int DoorAirMode = EMPTY;				//4 - open, 5 - close, 3 - auto		
+	float ReservParam1 = EMPTY;
+	int ReservParam2 = EMPTY;
+
+	// РџР°СЂР°РјРµС‚СЂС‹ С‚РµРјРїРµСЂР°С‚СѓСЂРЅРѕРіРѕ СЂРµР¶РёРјР°
+	float RoomSetPointTemperature;	// Р¦РµР»РµРІРѕРµ Р·РЅР°С‡РµРЅРёРµ С‚РµРјРїРµСЂР°С‚СѓСЂС‹ РїРѕРјРµС‰РµРЅРёСЏ. Р—Р°РґР°РµРј СЃРёСЃС‚РµРјРµ РєР°Рє РїР°СЂР°РјРµС‚СЂ, Р° СѓР¶Рµ РѕС‚ РЅРµРіРѕ СЂР°СЃС‡РёС‚С‹РІР°РµРј С‚РµРєСѓС‰СѓСЋ С†РµР»РµРІСѓСЋ.
+
+	//PID СЂРµРіСѓР»СЏС‚РѕСЂ
+	float pid_set_value; //Р¦РµР»РµРІР°СЏ С‚РµРјРїРµСЂР°С‚СѓСЂР° РґР»СЏ РџРРґ СЂРµРіСѓР»СЏС‚РѕСЂР°
+	float pid_cycleS; //Р¦РёРєР» СЂРµРіСѓР»СЏС‚РѕСЂР°
+	float pid_kP;
+	float pid_kI;
+	float pid_kD;
+
+} MegaParameters;  //РІ РґР°РЅРЅРѕРј РѕР±СЉРµРєС‚Рµ С…СЂР°РЅРёРј РїР°СЂР°РјРµС‚СЂС‹ СЃРёСЃС‚РµРјС‹, РїРѕР»СѓС‡РµРЅРЅС‹Рµ РёР· РњР•Р“Р
+
 
 /* Watch dog for Mega */
-// mega partner.
-#define PIN_RESET_MEGA 12 //вывод ESP для сброса меги
-//Флаги состояния подключенного модуля Mega
+//Р¤Р»Р°РіРё СЃРѕСЃС‚РѕСЏРЅРёСЏ РїРѕРґРєР»СЋС‡РµРЅРЅРѕРіРѕ РјРѕРґСѓР»СЏ Mega
 #define MEGA_OFF 0
 #define MEGA_ON  1
-byte mega = MEGA_OFF; //начальная установка флага присутствия МЕГИ
-unsigned long megaTimer = millis(); //Таймер проверки состояния подключенного модуля Mega
-
-
-/* Параметры MQTT сервера */
-extern long writeChannelID;				//ID канала ThingSpeak для записи через MQTT сервер
+byte mega = MEGA_OFF; //РЅР°С‡Р°Р»СЊРЅР°СЏ СѓСЃС‚Р°РЅРѕРІРєР° С„Р»Р°РіР° РїСЂРёСЃСѓС‚СЃС‚РІРёСЏ РњР•Р“Р
+unsigned long megaTimer = millis(); //РўР°Р№РјРµСЂ РїСЂРѕРІРµСЂРєРё СЃРѕСЃС‚РѕСЏРЅРёСЏ РїРѕРґРєР»СЋС‡РµРЅРЅРѕРіРѕ РјРѕРґСѓР»СЏ Mega
+																		/* РџР°СЂР°РјРµС‚СЂС‹ MQTT СЃРµСЂРІРµСЂР° */
+#ifdef MOD_MQTT
+extern long writeChannelID;				//ID РєР°РЅР°Р»Р° ThingSpeak РґР»СЏ Р·Р°РїРёСЃРё С‡РµСЂРµР· MQTT СЃРµСЂРІРµСЂ
 //extern int fieldsToPublish[8];    // Change to allow multiple fields.
 // float dataToPublish[8];    // Holds your field data.
+#endif 
 
 
 
-/* Initial Timers */
-myCycle cycleRequestTemperature(MS_01M, true);					// 2м, 1м, 5с(mega зависала, видимо от частых запросов и переполнения буфера) 30 запрос температуры
-myCycle cycleRequestSystemParameters(MS_20S, true);			// 3м, 30c, запрос параметров работы системы.
-//myCycle cycleRequestTargetTemperature(120000, true);	// 2м запрос текущей целевой температуры с учетом суточного расписания
-myCycle cycleSendingDataToThingSpeak(MS_05M, true,true);			// 5м цикл отправки данных о температуре на сайт ThingSpeak. Ограничение: не чаще раза в 15 секунд.
-myCycle cycleCheckMegaAndESP(MS_01M, true);							//3мин цикл отправки в mega через serial команды своего присутствия: ?esp=1
-myCycle cycleMegaTimeSynchronization(MS_30M, true,true);			// 1час цикл отправки команды синхронизации времени в мегу.
+
+/* РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј С‚Р°Р№РјРµСЂС‹ */
+myCycle cycleRequestSystemParameters(MS_10S, true);			// 3Рј, 30c, Р·Р°РїСЂРѕСЃ РїР°СЂР°РјРµС‚СЂРѕРІ СЂР°Р±РѕС‚С‹ СЃРёСЃС‚РµРјС‹.
+//myCycle cycleRequestTargetTemperature(120000, true);	// 2Рј Р·Р°РїСЂРѕСЃ С‚РµРєСѓС‰РµР№ С†РµР»РµРІРѕР№ С‚РµРјРїРµСЂР°С‚СѓСЂС‹ СЃ СѓС‡РµС‚РѕРј СЃСѓС‚РѕС‡РЅРѕРіРѕ СЂР°СЃРїРёСЃР°РЅРёСЏ
+myCycle cycleCheckMegaAndESP(MS_01M, true);							//3РјРёРЅ С†РёРєР» РѕС‚РїСЂР°РІРєРё РІ mega С‡РµСЂРµР· serial РєРѕРјР°РЅРґС‹ СЃРІРѕРµРіРѕ РїСЂРёСЃСѓС‚СЃС‚РІРёСЏ: ?esp=1
+myCycle cycleMegaTimeSynchronization(MS_30M, true, true);			// 1С‡Р°СЃ С†РёРєР» РѕС‚РїСЂР°РІРєРё РєРѕРјР°РЅРґС‹ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё РІСЂРµРјРµРЅРё РІ РјРµРіСѓ.
 
 
-/*****************************************************/
+/********************* SETUP ********************************/
 void setup() {
-	//Serial.setRxBufferSize(500); // по умолчанию в ESP 256 Байт
-	Serial.begin(9600);
+	//Serial.setRxBufferSize(500); // РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РІ ESP 256 Р‘Р°Р№С‚
+	//Serial.swap(); // GPIO15/D8 (TX) Рё GPIO13/D7 (RX)
+	//Serial.setTimeout(250);
+	Serial.begin(115200);
 	Serial.println();
 	DEBUG_PRINTLN_MAIN(F("*******   Start setup()   *******"));
-	//Serial.swap(); // GPIO15/D8 (TX) и GPIO13/D7 (RX)
-	//Serial.setTimeout(250);
-	 
 
-	// Вывод информации о контроллере
+	// Р’С‹РІРѕРґ РёРЅС„РѕСЂРјР°С†РёРё Рѕ РєРѕРЅС‚СЂРѕР»Р»РµСЂРµ
 	DEBUG_PRINTLN_MAIN("");
 	DEBUG_PRINTLN_MAIN("ESP8266 board info:");
 	DEBUG_PRINT_MAIN("\tChip ID: ");
@@ -121,154 +143,192 @@ void setup() {
 	DEBUG_PRINTLN_MAIN(ESP.getSketchSize());
 	DEBUG_PRINT_MAIN("\tSketch Free Space: ");
 	DEBUG_PRINTLN_MAIN(ESP.getFreeSketchSpace());
-	//Вывод напряжения питания ESP
-	//ADC_MODE (ADC_VCC); //перенастроить АЦП при запуске
-	//ESP.getVcc() //может использоваться для измерения напряжения питания
-	////В этом режиме вывод TOUT должен быть отключен.
-	////по умолчанию АЦП настроен на чтение с помощью TOUT pin analogRead(A0)и ESP.getVCC()недоступен.
+	//Р’С‹РІРѕРґ РЅР°РїСЂСЏР¶РµРЅРёСЏ РїРёС‚Р°РЅРёСЏ ESP
+	//ADC_MODE (ADC_VCC); //РїРµСЂРµРЅР°СЃС‚СЂРѕРёС‚СЊ РђР¦Рџ РїСЂРё Р·Р°РїСѓСЃРєРµ
+	//ESP.getVcc() //РјРѕР¶РµС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊСЃСЏ РґР»СЏ РёР·РјРµСЂРµРЅРёСЏ РЅР°РїСЂСЏР¶РµРЅРёСЏ РїРёС‚Р°РЅРёСЏ
+	////Р’ СЌС‚РѕРј СЂРµР¶РёРјРµ РІС‹РІРѕРґ TOUT РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РѕС‚РєР»СЋС‡РµРЅ.
+	////РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РђР¦Рџ РЅР°СЃС‚СЂРѕРµРЅ РЅР° С‡С‚РµРЅРёРµ СЃ РїРѕРјРѕС‰СЊСЋ TOUT pin analogRead(A0)Рё ESP.getVCC()РЅРµРґРѕСЃС‚СѓРїРµРЅ.
 
 	//Pins configuration
-	//настраиваем выход для сброса модуля MEGA
+	//РЅР°СЃС‚СЂР°РёРІР°РµРј РІС‹С…РѕРґ РґР»СЏ СЃР±СЂРѕСЃР° РјРѕРґСѓР»СЏ MEGA
 	pinMode(PIN_RESET_MEGA, OUTPUT_OPEN_DRAIN);
 	digitalWrite(PIN_RESET_MEGA, HIGH);
 
-	//Пин встроенного светодиода на плате ESP8266
+	//РџРёРЅ РІСЃС‚СЂРѕРµРЅРЅРѕРіРѕ СЃРІРµС‚РѕРґРёРѕРґР° РЅР° РїР»Р°С‚Рµ ESP8266
 	pinMode(LED_BUILTIN, OUTPUT);
 
 
-	//Инициализация модулей
+	//РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РјРѕРґСѓР»РµР№
 	DEBUG_PRINTLN_MAIN(F("call connectWifi()"));
 	connectWifi();
 
 	DEBUG_PRINTLN_MAIN(F("call initThingSpeak()"));
 	initThingSpeak();
 
+#ifdef MOD_MQTT
 	DEBUG_PRINTLN_MAIN(F("call initMQTT()"));
-	//0//initMQTT();
+	initMQTT();
+#endif
 
 	DEBUG_PRINTLN_MAIN(F("call initWebServer()"));
-	initWebServer(); 
+	initWebServer();
 
 	DEBUG_PRINTLN_MAIN(F("call initNTP()"));
 	initNTP();
 
 } //end setup
 
-
+/********************* LOOP ********************************/
 void loop() {
 	DEBUG_PRINTLN_MAIN(F("*******   Start loop()   *******"));
-	
+
 	// check wifi connection
 	DEBUG_PRINTLN_MAIN(F("call checkWiFiConnect()"));
 	checkWiFiConnect();
 
-	//Проверка и поддержание связи с сервером mqtt и подписки на топики, проверка поступления новых сообщений от MQTT брокера
+#ifdef MOD_MQTT
+	//РџСЂРѕРІРµСЂРєР° Рё РїРѕРґРґРµСЂР¶Р°РЅРёРµ СЃРІСЏР·Рё СЃ СЃРµСЂРІРµСЂРѕРј mqtt Рё РїРѕРґРїРёСЃРєРё РЅР° С‚РѕРїРёРєРё, РїСЂРѕРІРµСЂРєР° РїРѕСЃС‚СѓРїР»РµРЅРёСЏ РЅРѕРІС‹С… СЃРѕРѕР±С‰РµРЅРёР№ РѕС‚ MQTT Р±СЂРѕРєРµСЂР°
 	DEBUG_PRINTLN_MAIN(F("call mqttloop()"));
-	//1//mqttloop();
+	mqttloop();
+#endif // MOD_MQTT
 
 	// Web-server listen for HTTP requests from clients
 	DEBUG_PRINTLN_MAIN(F("call checkWebClient()"));
 	checkWebClient();
 
-	// работа NTP модуля. Обновление времени c сервера с периодичностью по своему внутреннему таймеру.
+	// СЂР°Р±РѕС‚Р° NTP РјРѕРґСѓР»СЏ. РћР±РЅРѕРІР»РµРЅРёРµ РІСЂРµРјРµРЅРё c СЃРµСЂРІРµСЂР° СЃ РїРµСЂРёРѕРґРёС‡РЅРѕСЃС‚СЊСЋ РїРѕ СЃРІРѕРµРјСѓ РІРЅСѓС‚СЂРµРЅРЅРµРјСѓ С‚Р°Р№РјРµСЂСѓ.
 	DEBUG_PRINTLN_MAIN(F("call ntpClockWork()"));
-	ntpClockWork(); 
+	ntpClockWork();
 
-	//проверка поступления данных на порт Serial от модуля Mega
-	DEBUG_PRINTLN_MAIN(F("call checkSerial()"));
-	checkSerial(); //проверяем как можно чаще
+	//РїСЂРѕРІРµСЂРєР° РїРѕСЃС‚СѓРїР»РµРЅРёСЏ РґР°РЅРЅС‹С… РЅР° РїРѕСЂС‚ Serial РѕС‚ РјРѕРґСѓР»СЏ Mega
+	DEBUG_PRINTLN_MAIN(F("call checkUART()"));
+	checkUART(); //РїСЂРѕРІРµСЂСЏРµРј РєР°Рє РјРѕР¶РЅРѕ С‡Р°С‰Рµ
 
-	
 /*************************************************/
-/*   процедуры вызываемые по сработке таймеров   */
+/*   РїСЂРѕС†РµРґСѓСЂС‹ РІС‹Р·С‹РІР°РµРјС‹Рµ РїРѕ СЃСЂР°Р±РѕС‚РєРµ С‚Р°Р№РјРµСЂРѕРІ   */
 /*************************************************/
 
-	//Отправка в Mega2560 точного времени
+//РћС‚РїСЂР°РІРєР° РІ Mega2560 С‚РѕС‡РЅРѕРіРѕ РІСЂРµРјРµРЅРё
 	DEBUG_PRINTLN_MAIN(F("call SendActualTime()"));
 	SendActualTime();
-	
-	//Запрос данных о всех температурах из модуля MEGA
-	if (cycleRequestTemperature.check()) {
-		DEBUG_PRINTLN_MAIN(F("call RequestTemperature()"));
-		RequestTemperature();
-		cycleRequestTemperature.reStart();
-	}
-									////Запрос данных о текущей целевой температуре с учетом расписания
-									//if (cycleRequestTargetTemperature.check()) {
-									//	RequestTargetTemperature();
-									//	// перезапуск таймера вызова функции.
-									//	cycleRequestTargetTemperature.clear();
-									//	cycleRequestTargetTemperature.reStart();
-									//}
 
-	//отправки данных о температуре на сайт ThingSpeak (не чаще раза в 15 секунд)
-	if (cycleSendingDataToThingSpeak.check()) {
+	//Р—Р°РїСЂРѕСЃ РґР°РЅРЅС‹С… Рѕ РІСЃРµС… С‚РµРјРїРµСЂР°С‚СѓСЂР°С… РёР· РјРѕРґСѓР»СЏ MEGA
+	DEBUG_PRINTLN_MAIN(F("call RequestTemperatures()"));
+	RequestTemperatures();
+
+	////Р—Р°РїСЂРѕСЃ РґР°РЅРЅС‹С… Рѕ С‚РµРєСѓС‰РµР№ С†РµР»РµРІРѕР№ С‚РµРјРїРµСЂР°С‚СѓСЂРµ СЃ СѓС‡РµС‚РѕРј СЂР°СЃРїРёСЃР°РЅРёСЏ
+	//if (cycleRequestTargetTemperature.check()) {
+	//	RequestTargetTemperature();
+	//	// РїРµСЂРµР·Р°РїСѓСЃРє С‚Р°Р№РјРµСЂР° РІС‹Р·РѕРІР° С„СѓРЅРєС†РёРё.
+	//	cycleRequestTargetTemperature.clear();
+	//	cycleRequestTargetTemperature.reStart();
+	//}
+
+	//РѕС‚РїСЂР°РІРєРё РґР°РЅРЅС‹С… Рѕ С‚РµРјРїРµСЂР°С‚СѓСЂРµ РЅР° СЃР°Р№С‚ ThingSpeak (РЅРµ С‡Р°С‰Рµ СЂР°Р·Р° РІ 15 СЃРµРєСѓРЅРґ)
 		DEBUG_PRINTLN_MAIN(F("call ThingSpeakWriteItems()"));
-		ThingSpeakWriteItems(temperatures);
-		cycleSendingDataToThingSpeak.reStart();
-	}
+		ThingSpeakWriteItems();
 
-	// отпарвки команды своего присутствия на Mega через Serial и проверка не зависла ли мега
+	// РѕС‚РїР°СЂРІРєРё РєРѕРјР°РЅРґС‹ СЃРІРѕРµРіРѕ РїСЂРёСЃСѓС‚СЃС‚РІРёСЏ РЅР° Mega С‡РµСЂРµР· Serial Рё РїСЂРѕРІРµСЂРєР° РЅРµ Р·Р°РІРёСЃР»Р° Р»Рё РјРµРіР°
 	if (cycleCheckMegaAndESP.check()) {
 		DEBUG_PRINTLN_MAIN(F("call checkMegaAndESP()"));
-		checkMegaAndESP();  		//Проверка нормального функционирования модуля MEGA.
+		checkMegaAndESP();  		//РџСЂРѕРІРµСЂРєР° РЅРѕСЂРјР°Р»СЊРЅРѕРіРѕ С„СѓРЅРєС†РёРѕРЅРёСЂРѕРІР°РЅРёСЏ РјРѕРґСѓР»СЏ MEGA.
 		cycleCheckMegaAndESP.reStart();
 	}
 
-	//запрос параметров работы системы отопления
+	//Р·Р°РїСЂРѕСЃ РїР°СЂР°РјРµС‚СЂРѕРІ СЂР°Р±РѕС‚С‹ СЃРёСЃС‚РµРјС‹ РѕС‚РѕРїР»РµРЅРёСЏ
 	if (cycleRequestSystemParameters.check()) {
 		DEBUG_PRINTLN_MAIN(F("call RequestSystemParameters()"));
-		RequestSystemParameters(); //запро параметров работы системы
+		RequestSystemParameters(); //Р·Р°РїСЂРѕ РїР°СЂР°РјРµС‚СЂРѕРІ СЂР°Р±РѕС‚С‹ СЃРёСЃС‚РµРјС‹
 		cycleRequestSystemParameters.reStart();
 	}
 
-	//мигнем встроенным светодиодом, просигнализируем об окончании цикла loop и видеть, что плата не зависла
+
+
+	//РјРёРіРЅРµРј РІСЃС‚СЂРѕРµРЅРЅС‹Рј СЃРІРµС‚РѕРґРёРѕРґРѕРј, РїСЂРѕСЃРёРіРЅР°Р»РёР·РёСЂСѓРµРј РѕР± РѕРєРѕРЅС‡Р°РЅРёРё С†РёРєР»Р° loop Рё РІРёРґРµС‚СЊ, С‡С‚Рѕ РїР»Р°С‚Р° РЅРµ Р·Р°РІРёСЃР»Р°
 	//digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN)); 
 	DEBUG_PRINTLN_MAIN(F("call blinkBuiltInLed()"));
 	blinkBuiltInLed();
 
 
-	//тестируем mqtt
+	//С‚РµСЃС‚РёСЂСѓРµРј mqtt
 	//2//mqttTest();
 
 	DEBUG_PRINTLN_MAIN(F("*******   End loop()"));
 } //end loop()
 
 
-/*******************************************************************************************/
-/*******************************   Функции   ***********************************************/
-/*******************************************************************************************/
+	/*******************************************************************************************/
+	/*******************************  РћР±С‰РёРµ С„СѓРЅРєС†РёРё РјРѕРґСѓР»СЏ ESP   ***********************************************/
+	/*******************************************************************************************/
 
-//Запрос информации о температуре с модуля MEGA
-void RequestTemperature() {
-	//запрос к меге на передачу всех значений температуры 
+	//Р—Р°РїСЂРѕСЃ РёРЅС„РѕСЂРјР°С†РёРё Рѕ С‚РµРјРїРµСЂР°С‚СѓСЂРµ СЃ РјРѕРґСѓР»СЏ MEGA
+	/**/
+void RequestTemperatures() {
+	/* РџРѕСЏРІР»СЏР»Р°СЃСЊ РѕС€РёР±РєР°, РІРёРґРёРјРѕ РїСЂРё РїРµСЂРµРїРѕР»РЅРµРЅРёРё Р±СѓС„РµСЂР° РЅР° РњРµРіРµ РѕС‚ С‚Р°РєРѕРіРѕ Р·Р°РїСЂРѕСЃР° (Р° СЃРєРѕСЂРµРµ РѕС‚ РѕС‚РІРµС‚Р°)
+	//Р·Р°РїСЂРѕСЃ Рє РјРµРіРµ РЅР° РїРµСЂРµРґР°С‡Сѓ РІСЃРµС… Р·РЅР°С‡РµРЅРёР№ С‚РµРјРїРµСЂР°С‚СѓСЂС‹
 	SERIAL_TO_MEGA.println(F("?reqesttemp=A"));
+	*/
+	//РЅРѕРјРµСЂР° РґР°С‚С‡РёРєРѕРІ С‚РµРјРїРµСЂР°С‚СѓСЂС‹ РІ РјР°СЃСЃРёРІРµ С‚РµРјРјРїРµСЂР°С‚СѓСЂ []: 
+	/*
+	0 - РїРѕРґР°С‡Р° cРёСЃС‚РµРјС‹
+	1 - РѕР±СЂР°С‚РєР° СЃРёСЃС‚РµРјС‹
+	2 - РѕС‚РІРѕРґ С‚СЂРµС…С…РѕРґРѕРІРѕРіРѕ РєСЂР°РЅР° РўРўРљ
+	3 - РїРѕРґР°С‡Р° РўРўРљ
+	4 - РѕР±СЂР°С‚РєР° РўРўРљ
+	5 - РІРµСЂС… РўРђ РїРѕРґР°С‡Р° РѕС‚ РўРўРљ
+	6 - РЅРёР· РўРђ РѕР±СЂР°С‚РєР° РўРўРљ
+	7 - РІРµСЂС… РўРђ РїРѕРґР°С‡Р° РІ СЃРёСЃС‚РµРјСѓ
+	8 - РѕС‚РІРѕРґ С‚СЂРµС…С…РѕРґРѕРІРѕРіРѕ РєСЂР°РЅР° СЃРёСЃС‚РµРјС‹
+	9 - РЅРёР· РўРђ, РѕР±СЂР°С‚РєР° СЃРёСЃС‚РµРјС‹
+	10 -РІРµСЂС… РўРђ
+	11 -РЅРёР· РўРђ
+	12 -С‚РµРјРїРµСЂР°С‚СѓСЂР° РІ РїРѕРјРµС‰РµРЅРёРё
+	13 -С‚РµРјРїРµСЂР°С‚СѓСЂР° РЅР° СѓР»РёС†Рµ
+	14 -РїРѕРґР°С‡Р° Р­Рљ
+	15 -С‚РµРјРїРµСЂР°С‚СѓСЂР° РІ СЃРїР°Р»СЊРЅРµ //РѕР±СЂР°С‚РєР° Р­Рљ 0x28, 0x97, 0x55, 0xC0, 0x04, 0x00, 0x00, 0xCA  // 0x28, 0xAA, 0x18, 0x40, 0x04, 0x00, 0x00, 0xB1 - РґР°С‚С‡РёРє РІ РєРѕС‡РµРіР°СЂРєРµ
+	16 -РўРµРјРїРµСЂР°С‚СѓСЂР° РґС‹РјРѕРІС‹С… РіР°Р·РѕРІ
+	17 -РўРµРєСѓС‰Р°СЏ С†РµР»РµРІР°СЏ С‚РµРјРїРµСЂР°С‚СѓСЂР° РІ СЃРѕРѕС‚РІРµС‚СЃС‚РІРёРё СЃ СЂР°СЃРїРёСЃР°РЅРёРµРј
+	*/
+	static int count=0;												// РЅРѕРјРµСЂ Р·Р°РїСЂР°С€РёРІР°РµРјРѕРіРѕ РїР°СЂР°РјРµС‚СЂР° С‚РµРјРїРµСЂР°С‚СѓСЂС‹
+	static unsigned long lastRequestTime = 0;					//РІСЂРµРјСЏ РѕС‚РїСЂР°РІРєРё РїРѕСЃР»РµРґРЅРµРіРѕ Р·Р°РїСЂРѕСЃР°
+	if ((millis() - lastRequestTime) > EspParameters.DelayBetweenSendingTemperatureRequests) {
+		SERIAL_TO_MEGA.println(F("?reqesttemp=") + String(count));
+		lastRequestTime = millis();
+		count == 17 ? count = 0 : count++;
+	}
 }
 
-////Запрос информации о текущей целевой температуре с учетом расписания с модуля MEGA
+////Р—Р°РїСЂРѕСЃ РёРЅС„РѕСЂРјР°С†РёРё Рѕ С‚РµРєСѓС‰РµР№ С†РµР»РµРІРѕР№ С‚РµРјРїРµСЂР°С‚СѓСЂРµ СЃ СѓС‡РµС‚РѕРј СЂР°СЃРїРёСЃР°РЅРёСЏ СЃ РјРѕРґСѓР»СЏ MEGA
 //void RequestTargetTemperature() {
 //	Serial.println("?reqestTargetTemp");
 //}
 
-//Контроль работы модуля mega и отправка сигнала своего ESP присутствия 
+//РљРѕРЅС‚СЂРѕР»СЊ СЂР°Р±РѕС‚С‹ РјРѕРґСѓР»СЏ mega Рё РѕС‚РїСЂР°РІРєР° СЃРёРіРЅР°Р»Р° СЃРІРѕРµРіРѕ ESP РїСЂРёСЃСѓС‚СЃС‚РІРёСЏ 
 void checkMegaAndESP() {
-	//Отправка модулю MEGA информации о своем нормальном функционировании 
+	//РћС‚РїСЂР°РІРєР° РјРѕРґСѓР»СЋ MEGA РёРЅС„РѕСЂРјР°С†РёРё Рѕ СЃРІРѕРµРј РЅРѕСЂРјР°Р»СЊРЅРѕРј С„СѓРЅРєС†РёРѕРЅРёСЂРѕРІР°РЅРёРё 
 	SERIAL_TO_MEGA.println(F("?esp=1"));
-	//Проверяем как долго от модуля mega не поступала информации о его присутствии. за 3 минуты должен поступить сигнал присутствия
-	if ((millis() - megaTimer) > 180000UL) {//180000UL
-		mega = MEGA_OFF; 
+	//РџСЂРѕРІРµСЂСЏРµРј РєР°Рє РґРѕР»РіРѕ РѕС‚ РјРѕРґСѓР»СЏ mega РЅРµ РїРѕСЃС‚СѓРїР°Р»Р° РёРЅС„РѕСЂРјР°С†РёРё Рѕ РµРіРѕ РїСЂРёСЃСѓС‚СЃС‚РІРёРё. Р·Р° 5 РјРёРЅСѓС‚С‹ РґРѕР»Р¶РµРЅ РїРѕСЃС‚СѓРїРёС‚СЊ СЃРёРіРЅР°Р» РїСЂРёСЃСѓС‚СЃС‚РІРёСЏ
+	if ((millis() - megaTimer) > TIME_OUT_WATCH_DOG_MEGA) {//180000UL
+		mega = MEGA_OFF;
 		megaTimer = millis();
-		//делаем reset MEGA
+		//РґРµР»Р°РµРј reset MEGA
 		DEBUG_PRINTLN_MAIN(F("Module MEGA reseting"));
 		digitalWrite(PIN_RESET_MEGA, LOW);
 		delay(100);
 		digitalWrite(PIN_RESET_MEGA, HIGH);
 	}
-}	// cheсkMegaAndESP() 
+}	// cheСЃkMegaAndESP() 
 
-//запрос к меге на передачу значений внутренних параметров 
+
+	// ******  Р·Р°РїСЂРѕСЃ Рє РјРµРіРµ РЅР° РїРµСЂРµРґР°С‡Сѓ Р·РЅР°С‡РµРЅРёР№ РІРЅСѓС‚СЂРµРЅРЅРёС… РїР°СЂР°РјРµС‚СЂРѕРІ 
 void RequestSystemParameters() {
-	SERIAL_TO_MEGA.println(F("?getSystemParameters"));
+	SERIAL_TO_MEGA.println(F("?getSystemParameters")); //РїР°СЂР°РјРµС‚СЂС‹ РЅР°СЃРѕСЃРѕРІ Рё РєСЂР°РЅРѕРІ Рё СЂРµР¶РёРјРѕРІ РёС… СЂР°Р±РѕС‚С‹
+	SERIAL_TO_MEGA.println(F("?GetGTargetTemp")); //Р·РЅР°С‡РµРЅРёРµ С†РµР»РµРІРѕР№ РіР»РѕР±Р°Р»СЊРЅРѕР№ С‚РµРјРїРµСЂР°С‚СѓСЂС‹: systemParameters.RoomSetPointTemperature
+	//РµСЃР»Рё С„Р»Р°Рі РІС‹РїРѕР»РЅРµРЅРѕРіРѕ РёР·РјРµРЅРµРЅРёСЏ РїР°СЂР°РјРµС‚СЂРѕРІ РїРёРґ СЂРµРіСѓР»СЏС‚РѕСЂР° РІС‹СЃС‚Р°РІР»РµРЅ, С‚Рѕ Р·Р°РїСЂРѕСЃРёРј РїР°СЂР°РјРµС‚СЂС‹
+	if (pidParamChange) {
+		SERIAL_TO_MEGA.println(F("?getPIDParam")); //Р·Р°РїСЂРѕСЃРёРј РїР°СЂР°РјРµС‚СЂС‹ pid СЂРµРіСѓР»СЏС‚РѕСЂР°
+		pidParamChange = false;
+	}																							
 }
 
 /*******************************************************************************************/

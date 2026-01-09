@@ -79,10 +79,10 @@ void SendActualTime() {
 
 		if (ntp.synced()) {
 			SERIAL_TO_MEGA.println(F("?setTime=") + ntp.timeString());
-			DEBUG_PRINTLN_NTP(F("Send Time to MEGA. Time ") + ntp.timeString());
+			DEBUG_PRINTLN_NTP(F("Sended time to MEGA. ntp.time ") + ntp.timeString());
 		}
 		else {
-			DEBUG_PRINTLN_NTP(F("Don't send Time to MEGA (ntp.status: ") + String(ntp.status()) + F("). Time ") + ntp.timeString());
+			DEBUG_PRINTLN_NTP(F("Don't send Time to MEGA, because ntp.status: ") + String(ntp.status()) + F("). ntp.time: ") + ntp.timeString());
 		}
 		cycleMegaTimeSynchronization.reStart(); //перезапустим счетчик
 	}

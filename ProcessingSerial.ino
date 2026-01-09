@@ -1,13 +1,13 @@
-//=====================================================
-// Для обмена по UART с модулем MEGA на данный момент пока используется тот же Serial1, который идет на USB.
-// но у esp8266 есть еще один UART(фактически это просто вывод того же uart на другие ножки мк), вот только буфер у них общий, поэтому нужно переключаться с одного на другой 
-// функцией Serial.swap() и при этом, на всякий случай, еще чистим буфер функцией Serial.flush() 
-// подробнее тут: https://esp8266.ru/forum/threads/zachem-polzovatsja-kostylem-softserial-kogda-u-esp8266-dva-apparatnyx-uart.4749/
+п»ї//=====================================================
+// Р”Р»СЏ РѕР±РјРµРЅР° РїРѕ UART СЃ РјРѕРґСѓР»РµРј MEGA РЅР° РґР°РЅРЅС‹Р№ РјРѕРјРµРЅС‚ РїРѕРєР° РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ С‚РѕС‚ Р¶Рµ Serial, РєРѕС‚РѕСЂС‹Р№ РёРґРµС‚ РЅР° USB.
+// РЅРѕ Сѓ esp8266 РµСЃС‚СЊ РµС‰Рµ РѕРґРёРЅ UART-Serial1 (С„Р°РєС‚РёС‡РµСЃРєРё СЌС‚Рѕ РїСЂРѕСЃС‚Рѕ РІС‹РІРѕРґ С‚РѕРіРѕ Р¶Рµ uart РЅР° РґСЂСѓРіРёРµ РЅРѕР¶РєРё РјРє), РІРѕС‚ С‚РѕР»СЊРєРѕ Р±СѓС„РµСЂ Сѓ РЅРёС… РѕР±С‰РёР№, РїРѕСЌС‚РѕРјСѓ РЅСѓР¶РЅРѕ РїРµСЂРµРєР»СЋС‡Р°С‚СЊСЃСЏ СЃ РѕРґРЅРѕРіРѕ РЅР° РґСЂСѓРіРѕР№ 
+// С„СѓРЅРєС†РёРµР№ Serial.swap() Рё РїСЂРё СЌС‚РѕРј, РЅР° РІСЃСЏРєРёР№ СЃР»СѓС‡Р°Р№, РµС‰Рµ С‡РёСЃС‚РёРј Р±СѓС„РµСЂ С„СѓРЅРєС†РёРµР№ Serial.flush() 
+// РїРѕРґСЂРѕР±РЅРµРµ С‚СѓС‚: https://esp8266.ru/forum/threads/zachem-polzovatsja-kostylem-softserial-kogda-u-esp8266-dva-apparatnyx-uart.4749/
 //
 
-//включение отладки в модуле программы
-#define DEBUG_ENABLE_PS
 
+//РІРєР»СЋС‡РµРЅРёРµ РѕС‚Р»Р°РґРєРё РІ РјРѕРґСѓР»Рµ РїСЂРѕРіСЂР°РјРјС‹ 
+#define DEBUG_ENABLE_PS
 #ifdef DEBUG_ENABLE_PS
 #define DEBUG_PRINT_PS(x) (Serial.print(x))
 #define DEBUG_PRINTLN_PS(x) (Serial.println(x))
@@ -19,18 +19,18 @@
 #endif // DEBUG_ENABLE_PS
 
 
-//=============================== -- Обработка поступившей по UART информации от модуля MEGA -- ===========================
-bool sFlag = true;
+//=============================== -- РћР±СЂР°Р±РѕС‚РєР° РїРѕСЃС‚СѓРїРёРІС€РµР№ РїРѕ UART РёРЅС„РѕСЂРјР°С†РёРё РѕС‚ РјРѕРґСѓР»СЏ MEGA -- ===========================
+bool sFlag = true;   //С„Р»Р°Рі, РёРЅС„РѕСЂРјРёСЂСѓРµС‚, С‡С‚Рѕ РІ РґР°РЅРЅС‹С…, РїРѕР»СѓС‡РµРЅРЅС‹С… С‡РµСЂРµР· uart Р±С‹Р» РЅР°Р№РґРµРЅ РїРµСЂРµРІРѕРґ СЃС‚СЂРѕРєРё, Р° СЌС‚Рѕ Р·РЅР°С‡РёС‚ РєРѕРЅРµС† РѕС‚РїСЂР°РІР»РµРЅРЅС‹РѕР№ РєРѕРјР°РЅРґС‹
 String serialReq = "";
-//проверяем поступили-ли данные в порт Serial
-void checkSerial() {
+//РїСЂРѕРІРµСЂСЏРµРј РїРѕСЃС‚СѓРїРёР»Рё-Р»Рё РґР°РЅРЅС‹Рµ РІ РїРѕСЂС‚ Serial
+void checkUART() {
 	while (Serial.available() > 0) {
 		if (sFlag) {
 			serialReq = "";
 			sFlag = false;
 		}
 		char c = Serial.read();
-		if (c == 10) { // '\n' LF //При получении символа перевода строки, считывание прерывааем и вызываем команду парсинга полученной строки
+		if (c == 10) { // '\n' LF //РџСЂРё РїРѕР»СѓС‡РµРЅРёРё СЃРёРјРІРѕР»Р° РїРµСЂРµРІРѕРґР° СЃС‚СЂРѕРєРё, СЃС‡РёС‚С‹РІР°РЅРёРµ РїСЂРµСЂС‹РІР°Р°РµРј Рё РІС‹Р·С‹РІР°РµРј РєРѕРјР°РЅРґСѓ РїР°СЂСЃРёРЅРіР° РїРѕР»СѓС‡РµРЅРЅРѕР№ СЃС‚СЂРѕРєРё
 			sFlag = true;
 			parseSerialStr();
 		}
@@ -38,25 +38,24 @@ void checkSerial() {
 			}
 			else {
 				if (serialReq.length() < MAX_SERIAL_REQ) {
-
 					serialReq += c;
 				}
 			}
-	} // while (Serial.available() > 0
-} // checkSerial()
+	}
+}
 
-	//1 этап парсинга: выделение команды и параметра
+	//1 СЌС‚Р°Рї РїР°СЂСЃРёРЅРіР°: РІС‹РґРµР»РµРЅРёРµ РєРѕРјР°РЅРґС‹ Рё РїР°СЂР°РјРµС‚СЂР°
 void parseSerialStr() {
 	if (serialReq[0] == '?') {
 		parseSerialCmd();
 	}
 	else {
-		///DEBUGLN("ESP[" + serialReq + "]");  //выводим, то, что пришло в порт 
+		///DEBUGLN("ESP[" + serialReq + "]");  //РІС‹РІРѕРґРёРј, С‚Рѕ, С‡С‚Рѕ РїСЂРёС€Р»Рѕ РІ РїРѕСЂС‚ 
 	}
 }
 
 //********  
-// 2 этап:  разборс поступившей команды и ее обработка
+// 2 СЌС‚Р°Рї:  СЂР°Р·Р±РѕСЂСЃ РїРѕСЃС‚СѓРїРёРІС€РµР№ РєРѕРјР°РЅРґС‹ Рё РµРµ РѕР±СЂР°Р±РѕС‚РєР°
 void parseSerialCmd() {
 	String command, parameter;
 	if (serialReq.indexOf(F("?")) >= 0) {
@@ -70,62 +69,56 @@ void parseSerialCmd() {
 			command = serialReq.substring(pBegin);
 			parameter = "";
 		}
-	
-	//============================================================================
-	//============ Разбор поступивших команд =============
 
-//**********
+	//**********************************************************************************
+	//============ Р Р°Р·Р±РѕСЂ РїРѕСЃС‚СѓРїРёРІС€РёС… РєРѕРјР°РЅРґ Рё С‚СѓС‚ Р¶Рµ РѕРЅРё РѕР±СЂР°Р±Р°С‚С‹РІР°СЋС‚СЃСЏ =============
+	//**********************************************************************************
+	//?test 
+	if (command == F("test")) {//РљРѕРјР°РЅРґР° РґР»СЏ РїСЂРѕРІРµСЂРєРё СЂР°Р±РѕС‚С‹ С„СѓРЅРєС†РёРё РѕР±СЂР°Р±РѕС‚РєРё РІ ESP													// ?test
+		Serial.println(F("Put command test"));
+	}
+	//**********
 // ?mega
-		if (command == F("mega")) {//MEGA прислала подтверждение, что работает
+	else if (command == F("mega")) {//MEGA РїСЂРёСЃР»Р°Р»Р° РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ, С‡С‚Рѕ СЂР°Р±РѕС‚Р°РµС‚
 			if (parameter == F("1")) {
 				mega = MEGA_ON;
-				megaTimer = millis(); //сбросим таймер выявление зависания модуля MEGA
+				megaTimer = millis(); //СЃР±СЂРѕСЃРёРј С‚Р°Р№РјРµСЂ РІС‹СЏРІР»РµРЅРёРµ Р·Р°РІРёСЃР°РЅРёСЏ РјРѕРґСѓР»СЏ MEGA
 				DEBUG_PRINTLN_PS(F("Received from MEGA - working!"));
 			}
 		}
 
 //**********
-// ?sendtempХ              ?sendtemp=1.23;5.78;33,33;7,77
+// ?sendtempРҐ              ?sendtemp=1.23;5.78;33,33;7,77																										// ?sendtempРҐ  
 		else if (command.substring(0, 8) == F("sendtemp")) {
-			//  !???? Ошибка в этой функции!!! Не понятно как обрабатывает несколько значений!!!
-
-			/*  Эта процедура обрабатывает сразу все температуры одной строкой с разделителем';'
-			/*int iparam2 = parameter2.toFloat();
-			приём float чисел через сериал
-			десятичный разделитель - . (точка)
-			разделитель - ; (семиколон)*//*
-			//parameter// содержит последовательность значений температур через разделитель
-			int n = 0; //String buf_1="";
-			while (parameter.length() > 0) {
-			byte dividerIndex = parameter.indexOf(';');   // ищем индекс разделителя
-			String buf_1 = parameter.substring(0, dividerIndex);    // создаём строку с первым числом
-			temperatures[n] = buf_1.toFloat();
-			parameter = parameter.substring(dividerIndex + 1);   // остаток строки
-			n++;
-			}*/
-			int index = command.substring(8).toInt();
-			temperatures[index] = parameter.toFloat();
-			DEBUG_PRINTLN_PS("temp " + command.substring(8) + ": " + String(temperatures[index]) + "");
-		}
-
-//**********
-// ?test 
-		else if (command == F("test")) {//Команда для проверки работы функции обработки в ESP													// ?test
-			Serial.println(F("Put command test"));
+			if (command.substring(8) == "A") {
+				DEBUG_PRINTLN_PS("Get from MEGA string of temperatures " + parameter);
+				//РћР±СЂР°Р±РѕС‚РєР° РЅРµ СЃРґРµР»Р°РЅР°!!!!  Р‘С‹Р»Рё РїСЂРѕР±Р»РµРјС‹ СЃС‚Р°Р±РёР»СЊРЅРѕСЃРё РїСЂРё РѕС‚РїСЂР°РІРєРё С‚Р°РєРѕР№ Р±РѕР»СЊС€РѕР№ СЃС‚СЂРѕРєРё
+			}
+			else {
+				int index = command.substring(8).toInt();
+				temperatures[index] = parameter.toFloat();
+				DEBUG_PRINTLN_PS("temp " + command.substring(8) + ": " + String(temperatures[index]) + "");
+				// РїСЂРё РїРѕР»СѓС‡РµРЅРёРё РїРѕСЃР»РµРґРЅРµРіРѕ РїР°СЂР°РјРµС‚СЂР° РёР· РјР°СЃСЃРёРІР°, СѓСЃС‚Р°РЅРѕРІРёРј С„Р»Р°Рі РѕРєРѕРЅС‡Р°РЅРёСЏ РїРµСЂРІРѕРЅР°С‡Р°Р»СЊРЅРѕРіРѕ РїРѕР»РЅРѕРіРѕ РїРѕР»СѓС‡РµРЅРёСЏ С‚РµРјРїРµСЂР°С‚СѓСЂ
+				if ((index == (NUMBER_OF_TEMPERATURE_SENSORS - 1)) && !allTemperaturesObtained) {
+					allTemperaturesObtained = true;
+					DEBUG_PRINTLN_PS("Р’СЃРµ Р·РЅР°С‡РµРЅРёСЏ С‚РµРјРїРµСЂР°С‚СѓСЂ РїРѕР»СѓС‡РµРЅС‹. РЈСЃС‚Р°РЅРѕРІР»РµРЅ С„Р»Р°Рі allTemperaturesObtained");
+				}
+			}
 		}
 
 //**********
 // ?reqestrssi
-		else if (command == F("reqestrssi")) {//Запрос уровня сигнала wi-fi
+		else if (command == F("reqestrssi")) {//Р—Р°РїСЂРѕСЃ СѓСЂРѕРІРЅСЏ СЃРёРіРЅР°Р»Р° wi-fi
 			Serial.print("?sendrssi=");
 			Serial.println((long)WiFi.RSSI());
 		}
 
 //**********
 // ?sendGTargetTemp
-		else if (command == F("sendGTargetTemp")) {//Передача от MEGA значения глобальной целевой температуры системы, без учета расписания
-			///*DEBUGLN*/Serial.println("The global target temperature is obtained: " + parameter);
-			//Отправляем на сервер MQTT в field3 (GTargetTemp)
+		else if (command == F("sendGTargetTemp")) {//РџРµСЂРµРґР°С‡Р° РѕС‚ MEGA Р·РЅР°С‡РµРЅРёСЏ РіР»РѕР±Р°Р»СЊРЅРѕР№ С†РµР»РµРІРѕР№ С‚РµРјРїРµСЂР°С‚СѓСЂС‹ СЃРёСЃС‚РµРјС‹, Р±РµР· СѓС‡РµС‚Р° СЂР°СЃРїРёСЃР°РЅРёСЏ
+			//DEBUG_PRINTLN_PS(F("The global target temperature is obtained: ") + parameter);
+			MegaParameters.RoomSetPointTemperature = parameter.toFloat();
+			//РћС‚РїСЂР°РІР»СЏРµРј РЅР° СЃРµСЂРІРµСЂ MQTT РІ field3 (GTargetTemp)
 			/*dataToPublish[2] = parameter.toFloat();
 			fieldsToPublish[0] = 0; //field1 will be rec
 			fieldsToPublish[1] = 0; //...
@@ -139,18 +132,45 @@ void parseSerialCmd() {
 			//mqttPublish(writeChannelID, dataToPublish, fieldsToPublish);
 		}
 		//**********
-		// ?sendSystemParameters=XYZK
-		else if (command == F("sendSystemParameters")) {//Передача от MEGA значения глобальной целевой температуры системы, без учета расписания
-			//Serial.println("Received frame 'sendSystemParameters' with parameters:" + parameter);
-			SysParametrs[0] = parameter.substring(0,1).toInt();
-			SysParametrs[1] = parameter.substring(1,2).toInt();
-			SysParametrs[2] = parameter.substring(2,3).toInt();
-			SysParametrs[3] = parameter.substring(3,4).toInt();
+		// ?sendSystemParameters=XYZK																																						// ?sendSystemParameters
+		else if (command == F("sendSystemParameters")) {   
+			//DEBUG_PRINTLN_PS(F("РџРѕР»СѓС‡РµРЅР° РєРѕРјР°РЅРґР° РѕС‚ РјРµРіРё: ?sendSystemParameters СЃ РїР°СЂР°РјРµС‚СЂР°РјРё: ") + parameter);
 
-			SysParametrs[4] = parameter.substring(4,5).toInt();
-			SysParametrs[5] = parameter.substring(5,6).toInt();
-			
+			MegaParameters.TTKPumpMode = parameter.substring(0,1).toInt();
+			MegaParameters.SystemPumpMode = parameter.substring(1,2).toInt();
+			MegaParameters.SysTempControlMode = parameter.substring(2,3).toInt();
+			MegaParameters.DoorAirMode = parameter.substring(3,4).toInt();
+
+			MegaParameters.ReservParam1 = parameter.substring(4,8).toFloat();
+			MegaParameters.ReservParam2 = parameter.substring(8,9).toInt();
 		}
+
+		//**********
+		// ?sendPIDParam = Temperature,Cicle, kP, kI, kD																																						// ?sendSystemParameters
+		else if (command == F("sendPIDParam")) {
+			DEBUG_PRINTLN_PS(F("РџРѕР»СѓС‡РµРЅР° РєРѕРјР°РЅРґР° РѕС‚ РјРµРіРё: ?sendPIDParam СЃ РїР°СЂР°РјРµС‚СЂР°РјРё: ") + parameter);
+	
+			int p1 = 0, p2=0;
+			p2 = parameter.indexOf(",");
+			MegaParameters.pid_set_value = parameter.substring(p1, p2-1).toFloat();
+			p1 = parameter.indexOf(",",(p2+1));
+			MegaParameters.pid_cycleS = parameter.substring(p2+1, p1-1).toFloat();
+			p2 = parameter.indexOf(",", (p1 + 1));
+			MegaParameters.pid_kP = parameter.substring(p1 + 1, p2 - 1).toFloat();
+			p1 = parameter.indexOf(",",(p2+1));
+			MegaParameters.pid_kI = parameter.substring(p2+1, p1-1).toFloat();
+			p2 = parameter.indexOf(",", (p1 + 1));
+			MegaParameters.pid_kD = parameter.substring(p1 + 1, p2 - 1).toFloat();
+
+			Serial.println(F("РџСЂРѕРІРµСЂСЊ СЂР°Р·Р»РѕР¶РµРЅРёРµ СЃС‚СЂРѕРєРё РЅР° РїР°СЂР°РјРµС‚СЂС‹: "));
+			Serial.println(MegaParameters.pid_set_value);
+			Serial.println(MegaParameters.pid_cycleS);
+			Serial.println(MegaParameters.pid_kP);
+			Serial.println(MegaParameters.pid_kI);
+			Serial.println(MegaParameters.pid_kD);
+
+		}
+
 	}
 }
 
