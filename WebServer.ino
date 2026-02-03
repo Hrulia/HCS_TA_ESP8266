@@ -245,35 +245,35 @@ String prepareHtmlPage(float temperature[], MegaParametersStruct MegaParameters,
 			"<td>");
 				htmlPage += MegaParameters.pid_set_value;
 				htmlPage += F("</td>"
-			"<td><input name='PID_T' style='width:60px' required></td>"
+			"<td><input name='PID_T' style='width:60px' value=41 required></td>"
 		"</tr>"
 		"<tr>"
 			"<td>PID_C</td>"
 			"<td>");
 				htmlPage += MegaParameters.pid_cycleS;
 				htmlPage += F("</td>"
-			"<td><input name='PID_C' style='width:60px' required></td>"
+			"<td><input name='PID_C' style='width:60px' value=60 required></td>"
 		"</tr>"
 		"<tr>"
 			"<td>PID_kP</td>"
 			"<td>");
 				htmlPage += MegaParameters.pid_kP;
 				htmlPage += F("</td>"
-			"<td><input name='PID_kP' style='width:60px' required></td>"
+			"<td><input name='PID_kP' style='width:60px' value=1 required></td>"
 		"</tr>"
 		"<tr>"
 			"<td>PID_kI</td>"
 			"<td>");
 				htmlPage += MegaParameters.pid_kI;
 				htmlPage += F("</td>"
-			"<td><input name='PID_kI' style='width:60px' required></td>"
+			"<td><input name='PID_kI' style='width:60px' value=4 required></td>"
 		"</tr>"
 		"<tr>"
 			"<td>PID_kD</td>"
 			"<td>");
 				htmlPage += MegaParameters.pid_kD;
 				htmlPage += F("</td>"
-			"<td><input name='PID_kD' style='width:60px' required></td>"
+			"<td><input name='PID_kD' style='width:60px' value=4 required></td>"
 			"<td><button formaction='/PID'>Send</button></td>"
 		"</tr>"
 		"<tr>"
