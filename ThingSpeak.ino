@@ -20,7 +20,7 @@
 //EspParameters
 
 // Основной канал Tonshaevo_HCS на сайте ThingSpeak
-	unsigned long ThingSpeakChannelNumber = 71287359;					
+	unsigned long ThingSpeakChannelNumber = 1287359;					
 	const char * ThingSpeakWriteAPIKey = "8JCE0XOM858Q9P7O";	
 
 // Дополнительный канал Tonshaevo_HCS на сайте ThingSpeak

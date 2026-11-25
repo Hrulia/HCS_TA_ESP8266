@@ -71,7 +71,9 @@ void parseSerialCmd() {
 		}
 
 	//**********************************************************************************
+
 	//============ Разбор поступивших команд и тут же они обрабатываются =============
+
 	//**********************************************************************************
 	//?test 
 	if (command == F("test")) {//Команда для проверки работы функции обработки в ESP													// ?test
@@ -116,7 +118,7 @@ void parseSerialCmd() {
 //**********
 // ?sendGTargetTemp
 		else if (command == F("sendGTargetTemp")) {//Передача от MEGA значения глобальной целевой температуры системы, без учета расписания
-			//DEBUG_PRINTLN_PS(F("The global target temperature is obtained: ") + parameter);
+			// DEBUG_PRINTLN_PS(F("The global target temperature is obtained: ") + parameter);
 			MegaParameters.RoomSetPointTemperature = parameter.toFloat();
 			//Отправляем на сервер MQTT в field3 (GTargetTemp)
 			/*dataToPublish[2] = parameter.toFloat();
@@ -132,21 +134,23 @@ void parseSerialCmd() {
 			//mqttPublish(writeChannelID, dataToPublish, fieldsToPublish);
 		}
 		//**********
-		// ?sendSystemParameters=XYZK																																						// ?sendSystemParameters
+// ?sendSystemParameters=XYZKB																																						// ?sendSystemParameters
 		else if (command == F("sendSystemParameters")) {   
-			//DEBUG_PRINTLN_PS(F("Получена команда от меги: ?sendSystemParameters с параметрами: ") + parameter);
+			DEBUG_PRINTLN_PS(F("Получена команда от меги: ?sendSystemParameters с параметрами: ") + parameter);
 
 			MegaParameters.TTKPumpMode = parameter.substring(0,1).toInt();
 			MegaParameters.SystemPumpMode = parameter.substring(1,2).toInt();
 			MegaParameters.SysTempControlMode = parameter.substring(2,3).toInt();
 			MegaParameters.DoorAirMode = parameter.substring(3,4).toInt();
+			MegaParameters.ElectroBoilerMode = parameter.substring(4, 5).toInt();
 
-			MegaParameters.ReservParam1 = parameter.substring(4,8).toFloat();
-			MegaParameters.ReservParam2 = parameter.substring(8,9).toInt();
+			MegaParameters.ReservParam1 = parameter.substring(5,9).toFloat();
+			MegaParameters.ReservParam2 = parameter.substring(9,10).toInt();
+			///Serial.println(String("Устанвлены параметрами: ") + MegaParameters.TTKPumpMode + ", "+ MegaParameters.SystemPumpMode + ", " + MegaParameters.SysTempControlMode + ", " + MegaParameters.DoorAirMode + ", " + MegaParameters.ElectroBoilerMode + ", " + MegaParameters.ReservParam1 + ", " + MegaParameters.ReservParam2 + ", " );
 		}
 
 		//**********
-		// ?sendPIDParam = Temperature,Cicle, kP, kI, kD																																						// ?sendSystemParameters
+// ?sendPIDParam = Temperature,Cicle, kP, kI, kD																																						// ?sendPIDParam
 		else if (command == F("sendPIDParam")) {
 			DEBUG_PRINTLN_PS(F("Получена команда от меги: ?sendPIDParam с параметрами: ") + parameter);
 	

@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<!-- saved from url=(0383)https://thingspeak.mathworks.com/channels/1627034/charts/3?bgcolor=%23ffffff&color=%23d62020&results=60&dynamic=true&results=80&title=%D0%9F%D0%BE%D0%B4%D0%B0%D1%87%D0%B0+%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%B0&type=line&xaxis=%D0%92%D1%80%D0%B5%D0%BC%D1%8F%2C+%D1%87&yaxis=%D0%A2%D0%B5%D0%BC%D0%BF%D0%B5%D1%80%D0%B0%D1%82%D1%83%D1%80%D0%B0%2C+%C2%B0%D0%A1&yaxismax=60&yaxismin=25 -->
+<html style="height: 100%;"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <script src="./jquery-a3700c90d2826f7657df0dd91127a4fc6130d3c6e65eb2ab450a04a56b9040bd.js.Без названия"></script>
+  <script src="./htmlUtils-e0123513218182b592fad424cd73a0fbdb891a8a4835d1cbe84f9000fa127370.js.Без названия"></script>
+  <script type="text/javascript" src="./d3.min.js.Без названия" integrity="sha512-vc58qvvBdrDR4etbxMdlTt4GBQk1qjvyORR2nrsPsFPyrs+/u5c3+1Ct6upOgdZoIl7eq6k3a1UPDSNAQi/32A==" crossorigin="anonymous"></script>
+  <script src="./application-2dc44ae2690c91d6068664aa7d9bef0de9d73b34c35c99a874bd35763a88fd46.js.Без названия"></script>
+  <link rel="stylesheet" href="./chart-b93768fa3e55825a3c66676557f63d88bdb747f5f6e4843e596d09d39a5cef21.css" media="screen">
+    <script type="text/javascript">
+    
+    $(document).ready(async function() {
+      const title_height = 16;
+      const reverse_axis_left = 15;
+      const margin = {top: 10, right: 20, bottom: 60, left: 70},
+            width = $('#chart-container').width() - margin.left - margin.right,
+            height = $('#chart-container').height() - margin.top - margin.bottom - title_height; 
+      const columnWidthRatio = 0.9;
+      const barWidthRatio = 0.85;
+      const splineTension = 0.8;
+      const minBarColumnWidth = 1;
+      const maxBarColumnWidth = 10;
+      const tickValueThreshold = 1e24;
+      const tickValueThresholdMinus = -1e24;
+      const tickValueThresholdSmall = 10;
+      const tickValueThresholdSmallMinus = -10;
+      let last_date;
+    
+      // add rectangle for chart
+      const svg = d3.select("#chart-container").append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom + title_height)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top + title_height})` );
+      
+      // the url to fetch data
+      const dataUrl = 'https://thingspeak.mathworks.com/channels/1627034/field/3.json?&amp;offset=0&amp;results=80';
+      try {
+        const response = await d3.json(dataUrl);
+        if (response == '-1') {
+            $('#chart-container').append('This channel is not public.  To embed charts, the channel must be public or a read key must be specified.');
+          }
+        const responsedata=response.feeds;
+        let data = responsedata
+          .filter(d => {
+            const value = parseFloat(d.field3);
+            return !isNaN(value) && isFinite(value)
+                            ;
+          })
+          .map(d => ({
+            date: Date.parse(d.created_at),
+            value: parseFloat(d.field3)
+          }));
+
+          svg.append('text')
+            .attr('x', width / 2) 
+            .attr('y', -title_height / 4) 
+            .attr("class", "chart-title")
+            .text(decodeURIComponent('%D0%9F%D0%BE%D0%B4%D0%B0%D1%87%D0%B0%20%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%B0'));
+        // title
+
+        let x;
+        let y;
+
+        function getTimeRange(data) {
+          const startTime = d3.min(data, d => d.date);
+          const endTime = d3.max(data, d => d.date);
+          return endTime - startTime;
+        }
+        function customTickFormat(date, timeRange) {
+          // This function determines the tick format based on 
+          // the overall time distribution of the data.
+          // if the total time range is within 5 minutes, using %H:%M:%S like 10:11:20
+          // if the time range is within 15 days, using %H:%M like 11:25
+          // Otherwise it only contains date information.
+          // And for the mid night time tick, it will only show the date information as well
+
+          const formatSecond = d3.timeFormat("%H:%M:%S");
+          const formatMinute = d3.timeFormat("%H:%M");
+          const formatDate = d3.timeFormat("%d %b");
+          
+          if (date.getHours() === 0 && date.getMinutes() === 0) {
+            return formatDate(date);
+          } else if (timeRange <= 5 * 60 * 1000) { 
+            return formatSecond(date); // less than 5 minutes, using %H:%M:%S
+          } else if (timeRange <= 15 * 24 * 60 * 60 * 1000) { 
+            return formatMinute(date); // less than 15 days, using %H:%M
+          } else {
+            return formatDate(date);
+          }
+        }
+
+        function tickValueTwoSignificantFigures(d){
+          const dStr = d.toExponential();
+          const [base, exponent] = dStr.split('e');
+          const significantDigits = base.replace(/[^0-9]/g, '').slice(0, 3).padEnd(3, '0');              
+          const roundedValue = Math.round(parseInt(significantDigits) / 10);              
+          const result = roundedValue.toString().padEnd(2, '0');
+          return result;
+        }
+        function customValueTickFormat(d) {
+          // When the tick label's number is greater than 1e24 or less than -1e24
+          // only the highest two significant digits are retained, 
+          // followed by an "E" at the end. 
+          // when the number is between -10 to 10, the tick format will be d3.format(".2f")
+          // otherwise, it would be d3.format(".3s")
+          // for example:
+          // 2.82111 -> 2.82
+          // 200000 -> 200k
+          // 3e+125 -> 3.0E
+          switch (true) {
+            case (d >= tickValueThreshold):
+              {
+                const result = tickValueTwoSignificantFigures(d);
+                return `${result[0]}.${result[1]}E`;
+              }
+            case (d <= tickValueThresholdMinus):
+              {
+                const result = tickValueTwoSignificantFigures(d);
+                return `-${result[0]}.${result[1]}E`;
+              }
+            case (d > tickValueThresholdSmallMinus && d < tickValueThresholdSmall):
+              return d3.format(".2f")(d);
+            default:
+              return d3.format(".3s")(d);
+          }
+        }
+
+        function parseD3FormattedNumber(formattedStr) {
+          // The function is used to perform the inverse operation to retrieve numeric values from strings output by D3.js.
+          // for example:
+          // 1.02k -> 1020
+          // 1.31M -> 1310000
+          const units = {
+              '': 1,
+              'k': 1e3,
+              'M': 1e6,
+              'G': 1e9,
+              'T': 1e12,
+              'P': 1e15,
+              'E': 1e18,
+              'Z': 1e21,
+              'Y': 1e24
+          };
+          const regex = /^([-+]?[0-9]*\.?[0-9]+)([a-zA-Z]?)$/; 
+          const match = formattedStr.match(regex);
+
+          const numberPart = parseFloat(match[1]);
+          const unit = match[2];
+          return numberPart * units[unit];
+          
+        }
+
+        function setLineAndColumnYTicks(y){
+          const [minYDomain, maxYDomain] = y.domain();
+          let yTicks = y.ticks(5, "s");
+          let tickPairs = yTicks.map(d => ({ original: d, formatted: customValueTickFormat(d).replace('−', '-') }));
+          let uniqueTickPairsMap = new Map();
+          tickPairs.forEach(pair => {
+              if (!uniqueTickPairsMap.has(pair.formatted)) {
+                  uniqueTickPairsMap.set(pair.formatted, pair.original);
+              }
+          });
+
+          let uniqueTicksSurplus = Array.from(uniqueTickPairsMap.entries())
+            .filter(([formatted, original]) => original >= tickValueThreshold || original <= tickValueThresholdMinus)
+            .map(([formatted, original]) => original);
+          
+          let uniqueTicksMinimum = Array.from(uniqueTickPairsMap.entries())
+            .filter(([formatted, original]) => original >= tickValueThresholdSmallMinus && original <= tickValueThresholdSmall)
+            .map(([formatted, original]) => Number(formatted));
+
+          let uniqueTicksMid = Array.from(uniqueTickPairsMap.entries())
+            .filter(([formatted, original]) => (original > tickValueThresholdSmall && original < tickValueThreshold) || (original < tickValueThresholdSmallMinus && original > tickValueThresholdMinus))
+            .map(([formatted, original]) => parseD3FormattedNumber(formatted));
+
+          let uniqueTicks = uniqueTicksSurplus.concat(uniqueTicksMinimum).concat(uniqueTicksMid).sort((a, b) => a - b);
+          let uniqueTicksInRange = uniqueTicks.filter(d => d>=minYDomain && d<=maxYDomain);
+          let yTicksText;
+          if(uniqueTicksInRange.length!==0){
+            uniqueTicksInRange.forEach(function(tickValue) {
+              svg.append("line") 
+                .attr("class", "tick-line")
+                .attr("y1", y(tickValue)) 
+                .attr("x1", 0) 
+                .attr("y2", y(tickValue)) 
+                .attr("x2", width) 
+                .attr("stroke", "#e0e0e0") 
+                .attr("stroke-width", 1)
+                .lower(); 
+            });
+            yTicksText = d3.axisLeft(y)
+              .tickValues(uniqueTicksInRange) 
+              .tickFormat(d => customValueTickFormat(d)); 
+          } else {
+            if(uniqueTicks.length===0){
+              // there is no tick, which always happen with empty data
+              yTicksText = d3.axisLeft(y)
+                .tickValues([]);
+              return yTicksText;
+            }
+            // all ticks are not in the range, put the tick on the upper/lower bound
+            if(uniqueTicks[0]>=maxYDomain){
+              // all ticks are greater than the range, add only one line at the top
+              svg.append("line") 
+                .attr("class", "tick-line")
+                .attr("y1", y(maxYDomain)) 
+                .attr("x1", 0) 
+                .attr("y2", y(maxYDomain)) 
+                .attr("x2", width) 
+                .attr("stroke", "#e0e0e0") 
+                .attr("stroke-width", 1)
+                .lower(); 
+              yTicksText = d3.axisLeft(y)
+                .tickValues([maxYDomain]) 
+                .tickFormat(d => customValueTickFormat(uniqueTicks[0])); 
+            } else if(uniqueTicks[uniqueTicks.length-1]<=minYDomain){
+              // all ticks are less than the range, add only one line at the bottom
+              svg.append("line") 
+                .attr("class", "tick-line")
+                .attr("y1", y(minYDomain)) 
+                .attr("x1", 0) 
+                .attr("y2", y(minYDomain)) 
+                .attr("x2", width) 
+                .attr("stroke", "#e0e0e0") 
+                .attr("stroke-width", 1)
+                .lower(); 
+              yTicksText = d3.axisLeft(y)
+                .tickValues([minYDomain]) 
+                .tickFormat(d => customValueTickFormat(uniqueTicks[uniqueTicks.length-1])); 
+            } else {
+              // uniqueTicksInRange[0] is smaller than minYDomain
+              // and uniqueTicksInRange[uniqueTicksInRange.length-1] is larger than maxYDomain
+              // add 2 lines, one at the bottom and the other is on the top
+              svg.append("line") 
+                .attr("class", "tick-line")
+                .attr("y1", y(minYDomain)) 
+                .attr("x1", 0) 
+                .attr("y2", y(minYDomain)) 
+                .attr("x2", width) 
+                .attr("stroke", "#e0e0e0") 
+                .attr("stroke-width", 1)
+                .lower();
+              svg.append("line") 
+                .attr("class", "tick-line")
+                .attr("y1", y(maxYDomain)) 
+                .attr("x1", 0) 
+                .attr("y2", y(maxYDomain)) 
+                .attr("x2", width) 
+                .attr("stroke", "#e0e0e0") 
+                .attr("stroke-width", 1)
+                .lower(); 
+              yTicksText = d3.axisLeft(y)
+                .tickValues([minYDomain, maxYDomain]) 
+                .tickFormat(d => {
+                    if (d === minYDomain) return customValueTickFormat(uniqueTicks[0]);
+                    if (d === maxYDomain) return customValueTickFormat(uniqueTicks[uniqueTicks.length-1]);
+                    return d; 
+                }); 
+            }        
+          }
+          return yTicksText;
+        }
+
+        function setBarXTicks(x){
+          const [minXDomain, maxXDomain] = x.domain();
+          let xTicks = x.ticks(5, "s");
+          let tickPairs = xTicks.map(d => ({ original: d, formatted: customValueTickFormat(d).replace('−', '-') }));
+          
+          let uniqueTickPairsMap = new Map();
+          tickPairs.forEach(pair => {
+              if (!uniqueTickPairsMap.has(pair.formatted)) {
+                  uniqueTickPairsMap.set(pair.formatted, pair.original);
+              }
+          });
+
+          let uniqueTicksSurplus = Array.from(uniqueTickPairsMap.entries())
+            .filter(([formatted, original]) => original >= tickValueThreshold || original <= tickValueThresholdMinus)
+            .map(([formatted, original]) => original);
+          
+          let uniqueTicksMinimum = Array.from(uniqueTickPairsMap.entries())
+            .filter(([formatted, original]) => original >= tickValueThresholdSmallMinus && original <= tickValueThresholdSmall)
+            .map(([formatted, original]) => Number(formatted));
+
+          let uniqueTicksMid = Array.from(uniqueTickPairsMap.entries())
+            .filter(([formatted, original]) => (original > tickValueThresholdSmall && original < tickValueThreshold) || (original < tickValueThresholdSmallMinus && original > tickValueThresholdMinus))
+            .map(([formatted, original]) => parseD3FormattedNumber(formatted));
+
+          let uniqueTicks = uniqueTicksSurplus.concat(uniqueTicksMinimum).concat(uniqueTicksMid).sort((a, b) => a - b);
+          let uniqueTicksInRange = uniqueTicks.filter(d => d>=minXDomain && d<=maxXDomain);
+          let xTicksText;
+          if(uniqueTicksInRange.length!==0){
+            uniqueTicksInRange.forEach(function(tickValue) {
+              svg.append("line") 
+                .attr("class", "tick-line")
+                .attr("y1", title_height) 
+                .attr("x1", x(tickValue)) 
+                .attr("y2", height) 
+                .attr("x2", x(tickValue)) 
+                .attr("stroke", "#e0e0e0") 
+                .attr("stroke-width", 1)
+                .attr("transform", `translate(5,0)`) 
+                .lower(); 
+            });
+            xTicksText = d3.axisBottom(x)
+              .tickValues(uniqueTicksInRange) 
+              .tickFormat(d => customValueTickFormat(d)); 
+          } else {
+            if(uniqueTicks.length===0){
+              // there is no tick, which always happen with empty data
+              xTicksText = d3.axisBottom(x)
+                .tickValues([]);
+              return xTicksText;
+            }
+            // all ticks are not in the range, put the tick on the upper/lower bound
+            if(uniqueTicks[0]>=maxXDomain){
+              // all ticks are greater than the range, add only one line at the top
+              svg.append("line") 
+                .attr("class", "tick-line")
+                .attr("y1", title_height) 
+                .attr("x1", x(maxXDomain)) 
+                .attr("y2", height) 
+                .attr("x2", x(maxXDomain)) 
+                .attr("stroke", "#e0e0e0") 
+                .attr("stroke-width", 1)
+                .attr("transform", `translate(5,0)`) 
+                .lower(); 
+              xTicksText = d3.axisBottom(x)
+                .tickValues([maxXDomain]) 
+                .tickFormat(d => customValueTickFormat(uniqueTicks[0])); 
+            } else if(uniqueTicks[uniqueTicks.length-1]<=minXDomain){
+              // all ticks are less than the range, add only one line at the bottom
+              svg.append("line") 
+                .attr("class", "tick-line")
+                .attr("y1", title_height) 
+                .attr("x1", x(minXDomain)) 
+                .attr("y2", height) 
+                .attr("x2", x(minXDomain)) 
+                .attr("stroke", "#e0e0e0") 
+                .attr("stroke-width", 1)
+                .attr("transform", `translate(5,0)`) 
+                .lower(); 
+              xTicksText = d3.axisBottom(x)
+                .tickValues([minXDomain]) 
+                .tickFormat(d => customValueTickFormat(uniqueTicks[uniqueTicks.length-1])); 
+            } else {
+              // uniqueTicksInRange[0] is smaller than minYDomain
+              // and uniqueTicksInRange[uniqueTicksInRange.length-1] is larger than maxYDomain
+              // add 2 lines, one at the bottom and the other is on the top
+              svg.append("line") 
+                .attr("class", "tick-line")
+                .attr("y1", title_height) 
+                .attr("x1", x(minXDomain)) 
+                .attr("y2", height) 
+                .attr("x2", x(minXDomain)) 
+                .attr("stroke", "#e0e0e0") 
+                .attr("stroke-width", 1)
+                .attr("transform", `translate(5,0)`) 
+                .lower();
+              svg.append("line") 
+                .attr("class", "tick-line")
+                .attr("y1", title_height) 
+                .attr("x1", x(maxXDomain)) 
+                .attr("y2", height) 
+                .attr("x2", x(maxXDomain)) 
+                .attr("stroke", "#e0e0e0") 
+                .attr("stroke-width", 1)
+                .attr("transform", `translate(5,0)`) 
+                .lower(); 
+              xTicksText = d3.axisBottom(x)
+                .tickValues([minXDomain, maxXDomain]) 
+                .tickFormat(d => {
+                    if (d === minXDomain) return customValueTickFormat(uniqueTicks[0]);
+                    if (d === maxXDomain) return customValueTickFormat(uniqueTicks[uniqueTicks.length-1]);
+                    return d; 
+                }); 
+            }        
+          }
+          return xTicksText;
+        }
+        function setLineAxis(data){
+          const timeRange = getTimeRange(data);
+          x = d3.scaleTime()
+          .domain(d3.extent(data, d => d.date))
+          .range([0, width]);
+
+          svg.append("g")
+            .attr("transform", `translate(0,${height})`)
+            .attr("class", "x-axis")
+            .call(d3.axisBottom(x).ticks(4).tickFormat(d => customTickFormat(d, timeRange)).tickSizeOuter(0))
+            .call(g => g.selectAll(".domain, .tick").classed("chart-x-axis-label", true))
+            .lower()
+          .append("text")
+            .attr("y", margin.bottom *2 / 3)
+            .attr("x", width / 2)
+            .attr("class", "chart-xaxis")
+            .text(decodeURIComponent('%D0%92%D1%80%D0%B5%D0%BC%D1%8F%2C%20%D1%87'));
+          // x axis
+
+          const dataExtent = d3.extent(data, d => d.value);
+          const yminValue = dataExtent[0] - 0.05*(dataExtent[1]-dataExtent[0]);
+          const ymaxValue = dataExtent[1] + 0.05*(dataExtent[1]-dataExtent[0]);
+
+          y = d3.scaleLinear()
+            .domain([25,60 ])
+            .range([height, 0]);
+          const yTicksText = setLineAndColumnYTicks(y);
+      
+          svg.append("g")
+            .attr("class", "y-axis")
+            .call(yTicksText)
+            .call(g => g.selectAll(".domain, .tick line").remove())
+            .call(g => g.selectAll(".domain, .tick").classed("chart-y-axis-label", true))
+            .lower()
+          .append("text")
+            .attr("transform", "rotate(-90)")
+            .attr("y", -45)
+            .attr("x", -height / 2)
+            .attr("class", "chart-yaxis")
+            .text(decodeURIComponent('%D0%A2%D0%B5%D0%BC%D0%BF%D0%B5%D1%80%D0%B0%D1%82%D1%83%D1%80%D0%B0%2C%20%C2%B0%D0%A1'));
+          // y axis
+        }
+
+        function removeAxis(){
+          svg.select(".x-axis").remove();
+          svg.select(".y-axis").remove();
+          svg.selectAll(".tick-line").remove();
+        }
+
+        function setBarAxis(data){
+          const timeRange = getTimeRange(data);
+          y = d3.scaleTime()
+            .domain(d3.extent(data, d => d.date))
+            .range([reverse_axis_left, height]); 
+          
+          svg.append("g")
+            .attr("transform", `translate(5,0)`) 
+            .attr("class", "y-axis")
+            .call(d3.axisLeft(y).ticks(5).tickFormat(d => customTickFormat(d, timeRange)).tickSizeOuter(0))
+            .call(g => g.selectAll(".domain, .tick").classed("chart-y-axis-label", true))
+            .lower()
+          .append("text")
+            .attr("transform", "rotate(-90)")
+            .attr("y", -50) 
+            .attr("x", -height / 2)
+            .attr("class", "chart-xaxis")
+            .text(decodeURIComponent('%D0%92%D1%80%D0%B5%D0%BC%D1%8F%2C%20%D1%87'));
+          if(timeRange <= 10 * 60 * 1000){
+            d3.selectAll(".chart-y-axis-label").style("font-size","9px");
+          }
+          const xminValue = Math.min(d3.min(data, d => d.value),0);
+          const xmaxValue = Math.max(d3.max(data, d => d.value),0);
+
+          x = d3.scaleLinear()
+            .domain([25, 60])
+            .range([0, width]);
+
+          const xTicksText = setBarXTicks(x);
+
+          svg.append("g")
+            .attr("transform", `translate(5,${height})`) 
+            .attr("class", "x-axis")
+            .call(xTicksText)
+            .call(g => g.selectAll(".domain, .tick line").remove())
+            .call(g => g.selectAll(".domain, .tick").classed("chart-x-axis-label", true))
+            .lower()
+          .append("text")
+            .attr("y", 35) 
+            .attr("x", width / 2)
+            .attr("class", "chart-yaxis")
+            .text(decodeURIComponent('%D0%A2%D0%B5%D0%BC%D0%BF%D0%B5%D1%80%D0%B0%D1%82%D1%83%D1%80%D0%B0%2C%20%C2%B0%D0%A1'));
+        }
+
+        function setColumnAxis(data){
+          const timeRange = getTimeRange(data);
+          x = d3.scaleTime()
+          .domain(d3.extent(data, d => d.date))
+          .range([0, width]);
+
+          svg.append("g")
+            .attr("transform", `translate(0,${height})`)
+            .attr("class", "x-axis")
+            .call(d3.axisBottom(x).ticks(4).tickFormat(d => customTickFormat(d, timeRange)).tickSizeOuter(0))
+            .call(g => g.selectAll(".domain, .tick").classed("chart-x-axis-label", true))
+            .lower()
+          .append("text")
+            .attr("y", margin.bottom *2 / 3)
+            .attr("x", width / 2)
+            .attr("class", "chart-xaxis")
+            .text(decodeURIComponent('%D0%92%D1%80%D0%B5%D0%BC%D1%8F%2C%20%D1%87'));
+          // x axis
+
+          const yminValue = Math.min(d3.min(data, d => d.value),0);
+          const ymaxValue = Math.max(d3.max(data, d => d.value),0);
+          y = d3.scaleLinear()
+            .domain([25,60 ])
+            .range([height, 0]);
+          const yTicksText = setLineAndColumnYTicks(y);
+          
+
+          svg.append("g")
+            .attr("class", "y-axis")
+            .call(yTicksText)
+            .call(g => g.selectAll(".domain, .tick line").remove())
+            .call(g => g.selectAll(".domain, .tick").classed("chart-y-axis-label", true))
+            .lower()
+          .append("text")
+            .attr("transform", "rotate(-90)")
+            .attr("y", -45)
+            .attr("x", -height / 2)
+            .attr("class", "chart-yaxis")
+            .text(decodeURIComponent('%D0%A2%D0%B5%D0%BC%D0%BF%D0%B5%D1%80%D0%B0%D1%82%D1%83%D1%80%D0%B0%2C%20%C2%B0%D0%A1'));
+          // y axis
+        }
+
+        // add interactive tooltip
+        const tooltip = d3.select("#chart-container")
+          .append("div")
+          .style("opacity", 0)
+          .attr("class", "tooltip chart-tooltip");
+        
+
+        function mouseover(type) {
+          return function (event, d) {
+                tooltip.transition()
+                  .duration(200)
+                  .style("opacity", 0.8);
+                
+                let originalDate = new Date(d.date);
+                let tooltipString = response.channel.field3;
+                tooltipString = xssEvasion.sanitizeResponse(tooltipString);
+                tooltip.html(
+                    tooltipString + `: <b>${d.value}</b><br>` +
+                    `${originalDate.toDateString()}<br>`+
+                    `${originalDate.toTimeString().replace(/\(.*\)/, "")}` 
+                  )
+                  .style("left", calculatePosX(event.pageX) + "px") 
+                  .style("top", calculatePosY(event.pageY) + "px")
+                  .style("opacity", 0.8)
+                  .style("visibility", "visible")
+                  .style("position","absolute");
+                  if (type=="column" || type=="bar"){
+                    const brightColor = d3.color('#d62020').brighter();
+                    d3.select(this).attr("fill", brightColor);
+                  } else {
+                    d3.select(this).attr("stroke", 'white');
+                  }
+                  d3.select(this).attr("r", "5");
+              } 
+        } 
+
+        function mouseleave(d){
+          tooltip
+            .transition()
+            .duration(500)
+            .style("opacity", 0)
+          tooltip
+            .transition()
+            .delay(500)
+            .style("visibility", "hidden");
+          d3.select(this).attr("stroke", null);
+          d3.select(this).attr("r", "3.5");
+          d3.select(this).attr("fill", '#d62020');
+        }
+
+        svg.append("defs").append("clipPath")
+            .attr("id", "clip")
+          .append("rect")
+            .attr("x", -width) 
+            .attr("y", 0)
+            .attr("width", width*3) 
+            .attr("height", height);
+
+        svg.append("defs").append("clipPath")
+            .attr("id", "clipReverse")
+          .append("rect")
+            .attr("x", 0) 
+            .attr("y", -height)
+            .attr("width", width) 
+            .attr("height", height*3);
+
+        if(false) {
+          setColumnAxis(data);
+
+          let minInterval = d3.min(data.slice(1).map((d, i) => x(d.date) - x(data[i].date)));
+          let columnWidth = Math.min(maxBarColumnWidth, Math.max(minInterval * columnWidthRatio, minBarColumnWidth));
+          var columnGroup = svg.append("g")
+            .datum(data) 
+            .attr("id", "visualization_chart");
+
+          columnGroup.selectAll("rect")
+            .data(d => d) 
+            .enter()
+            .append("rect")
+            .attr("x", d => x(d.date) - 0.5 * columnWidth)
+            .attr("y", d => Math.min(y(0), y(d.value)))
+            .attr("width", columnWidth) 
+            .attr("height", d => Math.abs(y(d.value) - y(0))) 
+            .attr("fill", '#d62020')
+            .on("mouseover", mouseover("column") )
+            .on("mouseleave", mouseleave)
+            .attr("clip-path", "url(#clip)");
+
+        } else if(false){
+          setBarAxis(data);
+          let minInterval = d3.min(data.slice(1).map((d, i) => y(d.date) - y(data[i].date)));
+          let barWidth = Math.min(maxBarColumnWidth, Math.max(minInterval * barWidthRatio, minBarColumnWidth));
+        
+          var barGroup = svg.append("g")
+            .datum(data) 
+            .attr("id", "visualization_chart");          
+                  
+          barGroup.selectAll("rect")
+            .data(d => d) 
+            .enter()
+            .append("rect")
+            .attr("y", d => y(d.date) - 0.5 * barWidth) 
+            .attr("x", d => Math.min(x(0), x(d.value))) 
+            .attr("height", barWidth) 
+            .attr("width", d => Math.abs(x(d.value) - x(0))) 
+            .attr("fill", '#d62020')
+            .attr("transform", `translate(5,0)`) 
+            .on("mouseover", mouseover('bar') )
+            .on("mouseleave", mouseleave)
+            .attr("clip-path", "url(#clipReverse)"); 
+        } else if(false){
+          setLineAxis(data);
+          svg.append("path")
+          .datum(data)
+          .attr("class", "chart-line")
+          .attr("id", "visualization_chart")
+          .style("stroke", '#d62020')
+          .attr("d", d3.line()
+            .x(d => x(d.date))
+            .y(d => y(d.value))
+            .curve(d3.curveCardinal.tension(splineTension)) 
+          ).attr("clip-path", "url(#clip)");
+
+          svg.append('g')
+          .selectAll("dot")
+          .data(data)
+          .enter()
+          .append("circle")
+            .attr("cx", function (d) { return x(d.date); } )
+            .attr("cy", function (d) { return y(d.value); } )
+            .attr("r", 3.5)
+            .attr("class","chart-circle")
+            .attr("fill",'#d62020')
+          .on("mouseover", mouseover("spline") )
+          .on("mouseleave", mouseleave)
+          .attr("clip-path", "url(#clip)");
+        } else if(false){
+          setLineAxis(data);
+          svg.append("path")
+          .datum(data)
+          .attr("class", "chart-line")
+          .attr("id", "visualization_chart")
+          .style("stroke", '#d62020')
+          .attr("d", d3.line()
+            .x(d => x(d.date))
+            .y(d => y(d.value))
+            .curve(d3.curveStepAfter) 
+          ).attr("clip-path", "url(#clip)");
+
+          svg.append('g')
+          .selectAll("dot")
+          .data(data)
+          .enter()
+          .append("circle")
+            .attr("cx", function (d) { return x(d.date); } )
+            .attr("cy", function (d) { return y(d.value); } )
+            .attr("r", 3.5)          
+            .attr("class","chart-circle")
+            .attr("fill",'#d62020')
+          .on("mouseover", mouseover("step"))
+          .on("mouseleave", mouseleave)
+          .attr("clip-path", "url(#clip)");
+        } else {
+          setLineAxis(data);
+          svg.append("path")
+          .datum(data)
+          .attr("class", "chart-line")
+          .attr("id", "visualization_chart")
+          .style("stroke", '#d62020')
+          .attr("d", d3.line()
+            .x(d => x(d.date))
+            .y(d => y(d.value))
+          ).attr("clip-path", "url(#clip)");
+          svg.append('g')
+          .selectAll("dot")
+          .data(data)
+          .enter()
+          .append("circle")
+            .attr("cx", function (d) { return x(d.date); } )
+            .attr("cy", function (d) { return y(d.value); } )
+            .attr("r", 3.5)
+            .attr("class","chart-circle")
+            .attr("fill",'#d62020')
+          .on("mouseover", mouseover("line") )
+          .on("mouseleave", mouseleave)
+          .attr("clip-path", "url(#clip)");
+        }        
+        
+        let calculatePosX=function(x){
+          return x>200? x-200:x+20;
+        }
+        
+        let calculatePosY=function(y){
+          return y>height - 40? height-40:y;
+        }
+
+        // copyright
+        svg.append("text")
+          .attr("x", width)
+          .attr("y", height+margin.bottom*5/6)
+          .attr("class", "chart-copyright")
+          .text("ThingSpeak.com")
+          .on("click", () => { 
+              window.top.location.href = "https://thingspeak.com/";
+          });
+        
+        $('#loader-gif').remove();
+
+        let url = 'https://thingspeak.mathworks.com/channels/1627034/feed/last.json?&amp;offset=0&amp;location=true&amp;results=80';
+        if ("".length > 0) {
+          url = 'https://thingspeak.mathworks.com/channels/1627034/feed/last_average.json?&amp;offset=0&amp;location=true&amp;average=&amp;results=80';
+        } else if ("".length > 0) {
+          url = 'https://thingspeak.mathworks.com/channels/1627034/feed/last_median.json?&amp;offset=0&amp;location=true&amp;median=&amp;results=80';
+        } else if ("".length > 0) {
+          url = 'https://thingspeak.mathworks.com/channels/1627034/feed/last_sum.json?&amp;offset=0&amp;location=true&amp;sum=&amp;results=80';
+        }
+
+        if ('true' === 'true' && (''.length < 1)){
+          setInterval(() => {
+            d3.json(url).then(
+              function(updatedata){
+                if (updatedata && updatedata.field3){
+                  if (data.length > 0) {
+                    last_date = data[data.length - 1].date;
+                  }
+                  const newpoint={
+                    date: Date.parse(updatedata.created_at),
+                    value: parseFloat(updatedata.field3)
+                  };
+                  let shift = false; //default for shift
+                  let results = 80;          
+                  if (results && data.length + 1 >= results) {
+                    shift=true;
+                  }
+                  if (!isNaN(newpoint.value) && (newpoint.date != last_date)
+                                        ) {
+                      if(shift){
+                        data.shift();
+                      }
+                      data.push(newpoint);
+                  } else {
+                    data[data.length - 1]=newpoint;
+                  }   
+                  if(false){
+                    removeAxis();
+                    setColumnAxis(data);
+                    let minInterval = d3.min(data.slice(1).map((d, i) => x(d.date) - x(data[i].date)));
+                    let columnWidth = Math.min(maxBarColumnWidth, Math.max(minInterval * columnWidthRatio, minBarColumnWidth));
+                    
+                    columnGroup.selectAll("rect")
+                      .data(data) 
+                      .join(
+                        enter => enter.append("rect")
+                          .attr("x", d => x(d.date) - 0.5 * columnWidth)
+                          .attr("y", d => Math.min(y(0), y(d.value)))
+                          .attr("width", columnWidth)
+                          .attr("height", d => Math.abs(y(d.value) - y(0)))
+                          .attr("fill", '#d62020')
+                          .on("mouseover", mouseover("column") )
+                          .on("mouseleave", mouseleave)
+                          .attr("clip-path", "url(#clip)"), 
+                        update => update
+                          .attr("x", d => x(d.date)- 0.5 * columnWidth)
+                          .attr("y", d => Math.min(y(0), y(d.value)))
+                          .attr("width", columnWidth)
+                          .attr("height", d => Math.abs(y(d.value) - y(0)))
+                          .attr("fill", '#d62020')
+                          .on("mouseover", mouseover("column") )
+                          .on("mouseleave", mouseleave)
+                          .attr("clip-path", "url(#clip)"), 
+                        exit => exit.remove()
+                      );
+
+                  } else if(false){
+                    removeAxis();
+                    setBarAxis(data);
+                    let minInterval = d3.min(data.slice(1).map((d, i) => y(d.date) - y(data[i].date)));
+                    let barWidth = Math.min(maxBarColumnWidth, Math.max(minInterval * barWidthRatio, minBarColumnWidth));
+                                      
+                    barGroup.selectAll("rect")
+                      .data(data) 
+                      .join(
+                        enter => enter.append("rect")
+                          .attr("y", d => y(d.date) - 0.5 * barWidth) 
+                          .attr("x", d => Math.min(x(0), x(d.value))) 
+                          .attr("height", barWidth) 
+                          .attr("width", d => Math.abs(x(d.value) - x(0))) 
+                          .attr("fill", '#d62020')
+                          .attr("transform", `translate(5,0)`) 
+                          .on("mouseover", mouseover("bar") )
+                          .on("mouseleave", mouseleave)
+                          .attr("clip-path", "url(#clipReverse)"),
+                        update => update
+                          .attr("y", d => y(d.date) - 0.5 * barWidth) 
+                          .attr("x", d => Math.min(x(0), x(d.value))) 
+                          .attr("height", barWidth) 
+                          .attr("width", d => Math.abs(x(d.value) - x(0)))
+                          .attr("fill", '#d62020')
+                          .attr("transform", `translate(5,0)`) 
+                          .on("mouseover", mouseover("bar") )
+                          .on("mouseleave", mouseleave)
+                          .attr("clip-path", "url(#clipReverse)"), 
+                        exit => exit.remove()
+                      );
+                    
+                  } else if(false){
+                    removeAxis();
+                    setLineAxis(data);
+                    svg.select("#visualization_chart")
+                      .datum(data) 
+                      .style("stroke", '#d62020')
+                      .attr("d", d3.line()
+                        .x(d => x(d.date))
+                        .y(d => y(d.value))
+                        .curve(d3.curveCardinal.tension(splineTension)) 
+                      ).attr("clip-path", "url(#clip)");
+                      svg.selectAll("circle")
+                    .data(data) 
+                    .join(
+                      enter => enter.append("circle") 
+                        .attr("cx", d => x(d.date))
+                        .attr("cy", d => y(d.value))
+                        .attr("r", 3.5)
+                        .attr("class","chart-circle")
+                        .attr("fill",'#d62020')
+                        .on("mouseover", mouseover("spline") )
+                        .on("mouseleave", mouseleave)
+                        .attr("clip-path", "url(#clip)"),
+                      update => update 
+                        .attr("cx", d => x(d.date))
+                        .attr("cy", d => y(d.value))
+                        .on("mouseover", mouseover("spline") )
+                        .on("mouseleave", mouseleave)
+                        .attr("clip-path", "url(#clip)"),
+                      exit => exit.remove() 
+                    );
+
+                  } else if(false) {
+                    removeAxis();
+                    setLineAxis(data);
+                    svg.select("#visualization_chart")
+                      .datum(data) 
+                      .style("stroke", '#d62020')
+                      .attr("d", d3.line()
+                        .x(d => x(d.date))
+                        .y(d => y(d.value))
+                        .curve(d3.curveStepAfter) 
+                      ).attr("clip-path", "url(#clip)");
+                    svg.selectAll("circle")
+                    .data(data) 
+                    .join(
+                      enter => enter.append("circle") 
+                        .attr("cx", d => x(d.date))
+                        .attr("cy", d => y(d.value))
+                        .attr("r", 3.5)
+                        .attr("class","chart-circle")
+                        .attr("fill",'#d62020')
+                        .on("mouseover", mouseover("spline") )
+                        .on("mouseleave", mouseleave)
+                        .attr("clip-path", "url(#clip)"),
+                      update => update 
+                        .attr("cx", d => x(d.date))
+                        .attr("cy", d => y(d.value))
+                        .on("mouseover", mouseover("spline") )
+                        .on("mouseleave", mouseleave)
+                        .attr("clip-path", "url(#clip)"),
+                      exit => exit.remove() 
+                    );
+                  } else {
+                    removeAxis();
+                    setLineAxis(data);
+                    svg.select("#visualization_chart")
+                      .datum(data) 
+                      .style("stroke", '#d62020')
+                      .attr("d", d3.line()
+                        .x(d => x(d.date))
+                        .y(d => y(d.value))
+                      ).attr("clip-path", "url(#clip)");
+                    svg.selectAll("circle")
+                    .data(data) 
+                    .join(
+                      enter => enter.append("circle") 
+                        .attr("cx", d => x(d.date))
+                        .attr("cy", d => y(d.value))
+                        .attr("r", 3.5)
+                        .attr("fill",'#d62020')
+                        .attr("class","chart-circle")
+                        .on("mouseover", mouseover("line") )
+                        .on("mouseleave", mouseleave)
+                        .attr("clip-path", "url(#clip)"),
+                      update => update 
+                        .attr("cx", d => x(d.date))
+                        .attr("cy", d => y(d.value))
+                        .attr("fill",'#d62020')
+                        .on("mouseover", mouseover("line") )
+                        .on("mouseleave", mouseleave)
+                        .attr("clip-path", "url(#clip)"),
+                      exit => exit.remove() 
+                    );
+                  }                  
+                }
+              }
+            );
+          }, 15000);
+        }
+        
+      } catch (error) {
+        
+      }
+
+    }); // end document.ready
+    </script>
+</head>
+
+<body style="background-color: #ffffff; height: 100%; margin: 0; padding: 0;">
+  <div id="chart-container" style="width: 425px; height: 225px; display: block; position:absolute; bottom:0; top:0; left:0; right:0; margin: 5px 15px 15px 0; overflow: hidden;">
+    
+  <svg width="425" height="225"><g transform="translate(70,26)"><g class="y-axis" fill="none" font-size="10" font-family="sans-serif" text-anchor="end"><g class="tick chart-y-axis-label" opacity="1" transform="translate(0,139.5)"><text fill="currentColor" x="-9" dy="0.32em">25.0</text></g><g class="tick chart-y-axis-label" opacity="1" transform="translate(0,119.64285714285715)"><text fill="currentColor" x="-9" dy="0.32em">30.0</text></g><g class="tick chart-y-axis-label" opacity="1" transform="translate(0,99.78571428571429)"><text fill="currentColor" x="-9" dy="0.32em">35.0</text></g><g class="tick chart-y-axis-label" opacity="1" transform="translate(0,79.92857142857143)"><text fill="currentColor" x="-9" dy="0.32em">40.0</text></g><g class="tick chart-y-axis-label" opacity="1" transform="translate(0,60.07142857142858)"><text fill="currentColor" x="-9" dy="0.32em">45.0</text></g><g class="tick chart-y-axis-label" opacity="1" transform="translate(0,40.214285714285715)"><text fill="currentColor" x="-9" dy="0.32em">50.0</text></g><g class="tick chart-y-axis-label" opacity="1" transform="translate(0,20.357142857142865)"><text fill="currentColor" x="-9" dy="0.32em">55.0</text></g><g class="tick chart-y-axis-label" opacity="1" transform="translate(0,0.5)"><text fill="currentColor" x="-9" dy="0.32em">60.0</text></g><text transform="rotate(-90)" y="-45" x="-69.5" class="chart-yaxis">Температура, °С</text></g><line class="tick-line" y1="0" x1="0" y2="0" x2="335" stroke="#e0e0e0" stroke-width="1"></line><line class="tick-line" y1="19.857142857142865" x1="0" y2="19.857142857142865" x2="335" stroke="#e0e0e0" stroke-width="1"></line><line class="tick-line" y1="39.714285714285715" x1="0" y2="39.714285714285715" x2="335" stroke="#e0e0e0" stroke-width="1"></line><line class="tick-line" y1="59.57142857142858" x1="0" y2="59.57142857142858" x2="335" stroke="#e0e0e0" stroke-width="1"></line><line class="tick-line" y1="79.42857142857143" x1="0" y2="79.42857142857143" x2="335" stroke="#e0e0e0" stroke-width="1"></line><line class="tick-line" y1="99.28571428571429" x1="0" y2="99.28571428571429" x2="335" stroke="#e0e0e0" stroke-width="1"></line><line class="tick-line" y1="119.14285714285715" x1="0" y2="119.14285714285715" x2="335" stroke="#e0e0e0" stroke-width="1"></line><line class="tick-line" y1="139" x1="0" y2="139" x2="335" stroke="#e0e0e0" stroke-width="1"></line><g transform="translate(0,139)" class="x-axis" fill="none" font-size="10" font-family="sans-serif" text-anchor="middle"><path class="domain chart-x-axis-label" stroke="currentColor" d="M0.5,0.5H335.5"></path><g class="tick chart-x-axis-label" opacity="1" transform="translate(10.40777548099857,0)"><line stroke="currentColor" y2="6"></line><text fill="currentColor" y="9" dy="0.71em">18:00</text></g><g class="tick chart-x-axis-label" opacity="1" transform="translate(74.3289076164732,0)"><line stroke="currentColor" y2="6"></line><text fill="currentColor" y="9" dy="0.71em">19:00</text></g><g class="tick chart-x-axis-label" opacity="1" transform="translate(138.25003975194784,0)"><line stroke="currentColor" y2="6"></line><text fill="currentColor" y="9" dy="0.71em">20:00</text></g><g class="tick chart-x-axis-label" opacity="1" transform="translate(202.17117188742247,0)"><line stroke="currentColor" y2="6"></line><text fill="currentColor" y="9" dy="0.71em">21:00</text></g><g class="tick chart-x-axis-label" opacity="1" transform="translate(266.0923040228971,0)"><line stroke="currentColor" y2="6"></line><text fill="currentColor" y="9" dy="0.71em">22:00</text></g><g class="tick chart-x-axis-label" opacity="1" transform="translate(330.01343615837175,0)"><line stroke="currentColor" y2="6"></line><text fill="currentColor" y="9" dy="0.71em">23:00</text></g><text y="40" x="167.5" class="chart-xaxis">Время, ч</text></g><text x="167.5" y="-4" class="chart-title">Подача система</text><defs><clippath id="clip"><rect x="-335" y="0" width="1005" height="139"></rect></clippath></defs><defs><clippath id="clipReverse"><rect x="0" y="-139" width="335" height="417"></rect></clippath></defs><path class="chart-line" id="visualization_chart" d="M0,75.457L1.101,76.45L3.445,76.927L4.546,77.205L5.629,77.681L9.038,78.197L10.139,78.436L11.239,78.436L12.518,78.674L13.601,78.674L14.702,78.912L15.98,78.912L17.081,79.19L18.182,79.429L21.591,80.183L22.674,80.183L25.018,80.421L26.101,77.681L27.184,77.443L29.546,73.471L30.629,71.724L31.73,71.486L34.038,67.753L35.121,67.753L36.222,66.76L38.53,65.29L39.631,65.012L40.714,63.305L43.058,62.034L44.141,62.788L45.242,61.557L48.651,59.571L49.734,60.326L50.817,59.81L53.143,58.817L54.244,59.333L55.327,58.817L58.736,58.579L59.837,58.062L63.246,58.062L64.33,57.824L65.43,58.34L67.739,57.069L68.84,56.077L69.923,55.6L72.266,55.084L73.349,54.607L74.433,54.607L75.533,54.607L77.877,55.6L78.96,55.362L80.043,54.845L82.352,54.369L83.435,54.369L84.518,53.853L85.601,53.614L86.862,53.614L87.963,53.098L89.046,53.376L91.478,53.376L93.822,51.629L94.923,51.867L96.006,51.629L99.415,50.874L100.516,50.636L102.86,50.636L103.961,49.127L106.304,49.405L107.405,48.888L108.488,48.412L110.832,48.65L166.39,62.034L326.193,69.262L327.258,76.212L328.342,76.212L329.425,76.212L330.508,76.45L331.68,76.45L333.917,76.927L335,76.927" clip-path="url(#clip)" style="stroke: rgb(214, 32, 32);"></path><g><circle cx="0" cy="75.45714285714287" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="1.1008639423331743" cy="76.45" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="3.444638787300578" cy="76.92657142857142" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="4.5455027296337525" cy="77.20457142857143" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="5.628610801929294" cy="77.68114285714287" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="9.037737849154608" cy="78.19742857142856" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="10.138601791487783" cy="78.43571428571428" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="11.239465733820959" cy="78.43571428571428" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="12.51788837653045" cy="78.674" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="13.600996448825994" cy="78.674" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="14.701860391159165" cy="78.9122857142857" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="15.98028303386866" cy="78.9122857142857" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="17.081146976201833" cy="79.19028571428571" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="18.18201091853501" cy="79.42857142857143" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="21.59113796576032" cy="80.18314285714284" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="22.674246038055863" cy="80.18314285714284" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="25.01802088302327" cy="80.42142857142856" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="26.10112895531881" cy="77.68114285714287" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="27.184237027614355" cy="77.44285714285715" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="29.545767742619386" cy="73.47142857142858" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="30.62887581491493" cy="71.724" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="31.729739757248105" cy="71.48571428571428" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="34.038002862140246" cy="67.75257142857144" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="35.121110934435784" cy="67.75257142857144" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="36.22197487676896" cy="66.7597142857143" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="38.5302379816611" cy="65.2902857142857" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="39.63110192399428" cy="65.01228571428571" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="40.71420999628982" cy="63.30457142857143" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="43.057984841257216" cy="62.03371428571427" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="44.14109291355276" cy="62.78828571428572" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="45.24195685588594" cy="61.55714285714286" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="48.65108390311125" cy="59.57142857142858" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="49.734191975406794" cy="60.32599999999999" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="50.81730004770234" cy="59.8097142857143" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="53.14331902263211" cy="58.816857142857145" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="54.24418296496528" cy="59.33314285714285" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="55.32729103726083" cy="58.816857142857145" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="58.73641808448613" cy="58.57857142857142" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="59.83728202681932" cy="58.0622857142857" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="63.24640907404463" cy="58.0622857142857" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="64.32951714634017" cy="57.824000000000005" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="65.43038108867334" cy="58.3402857142857" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="67.73864419356549" cy="57.06942857142856" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="68.83950813589867" cy="56.07657142857142" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="69.9226162081942" cy="55.6" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="72.2663910531616" cy="55.08371428571428" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="73.34949912545714" cy="54.60714285714286" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="74.43260719775269" cy="54.60714285714286" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="75.53347114008587" cy="54.60714285714286" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="77.87724598505326" cy="55.6" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="78.96035405734881" cy="55.36171428571428" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="80.04346212964435" cy="54.845428571428585" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="82.35172523453649" cy="54.36885714285714" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="83.43483330683203" cy="54.36885714285714" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="84.51794137912758" cy="53.85257142857143" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="85.60104945142312" cy="53.61428571428571" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="86.86171622409498" cy="53.61428571428571" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="87.96258016642817" cy="53.097999999999985" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="89.0456882387237" cy="53.37599999999998" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="91.47824243387926" cy="53.37599999999998" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="93.82201727884667" cy="51.62857142857143" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="94.92288122117984" cy="51.86685714285716" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="96.00598929347538" cy="51.62857142857143" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="99.41511634070069" cy="50.87400000000002" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="100.51598028303385" cy="50.63571428571429" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="102.85975512800128" cy="50.63571428571429" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="103.96061907033445" cy="49.12657142857141" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="106.30439391530186" cy="49.404571428571415" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="107.40525785763502" cy="48.88828571428572" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="108.48836592993057" cy="48.411714285714275" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="110.83214077489798" cy="48.65" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="166.39025812264802" cy="62.03371428571427" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="326.19308846133464" cy="69.26171428571428" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="327.2584406635925" cy="76.21171428571428" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="328.34154873588807" cy="76.21171428571428" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="329.4246568081836" cy="76.21171428571428" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="330.5077648804791" cy="76.45" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="331.67965230296284" cy="76.45" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="333.91689192770446" cy="76.92657142857142" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle><circle cx="335" cy="76.92657142857142" r="3.5" class="chart-circle" fill="#d62020" clip-path="url(#clip)"></circle></g><text x="335" y="189" class="chart-copyright">ThingSpeak.com</text></g></svg><div class="tooltip chart-tooltip" style="opacity: 0;"></div></div>
+
+
+</body></html>

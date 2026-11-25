@@ -65,15 +65,20 @@ struct EspParametersStruct {
 
 // Структура с параметры системы из МЕГИ
 struct MegaParametersStruct {
-	// режимы работы насосов ТТк и Системы
+	// режимы работы насосов ТТK и Системы
 	int TTKPumpMode = EMPTY;			//1 - on, 2 - off, 3 - auto
 	int SystemPumpMode = EMPTY;			//1 - on, 2 - off, 3 - auto
+
 	
 	// алгоритм регулирования температуры в системе
 	int SysTempControlMode = EMPTY;	//6 – мой алгоритм регулирования, 7 - PID регулятор
 	
 	// Алгоритм управления дверкой поддувала
 	int DoorAirMode = EMPTY;				//4 - open, 5 - close, 3 - auto		
+
+	// режим работы электрокотла
+	int ElectroBoilerMode = EMPTY;			//1 - on, 2 - off, 3 - auto
+
 	float ReservParam1 = EMPTY;
 	int ReservParam2 = EMPTY;
 
@@ -110,7 +115,7 @@ extern long writeChannelID;				//ID канала ThingSpeak для записи 
 myCycle cycleRequestSystemParameters(MS_10S, true);			// 3м, 30c, запрос параметров работы системы.
 //myCycle cycleRequestTargetTemperature(120000, true);	// 2м запрос текущей целевой температуры с учетом суточного расписания
 myCycle cycleCheckMegaAndESP(MS_01M, true);							//3мин цикл отправки в mega через serial команды своего присутствия: ?esp=1
-myCycle cycleMegaTimeSynchronization(MS_30M, true, true);			// 1час цикл отправки команды синхронизации времени в мегу.
+myCycle cycleMegaTimeSynchronization(MS_30M, true, true);			// цикл отправки команды синхронизации времени в мегу.
 
 
 /********************* SETUP ********************************/
